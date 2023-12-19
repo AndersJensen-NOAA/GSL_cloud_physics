@@ -1,1 +1,1 @@
-# cloud_microphysics
+# This repository contains the core driver for the Thompson-Eidhammer cloud microphysics parameterization.
