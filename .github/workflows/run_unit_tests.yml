@@ -15,6 +15,9 @@ jobs:
     env:
       driver_ROOT: /home/runner/work/cloud_microphysics
 
+    # Workflow steps
+    steps:
+
     - name: Checkout code (into ${driver_ROOT})
       uses: actions/checkout@v3
 
