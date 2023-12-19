@@ -23,10 +23,10 @@ jobs:
 
     - name: Build unit tests
       run: |
-        cd ${drvier_ROOT}/unit_tests
+        cd ${driver_ROOT}/unit_tests
         make driver
 
     - name: Run unit tests
       run: |
-        cd ${drvier_ROOT}/unit_tests
+        cd ${driver_ROOT}/unit_tests
         ./driver
