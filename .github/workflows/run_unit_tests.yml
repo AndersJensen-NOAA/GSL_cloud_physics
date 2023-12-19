@@ -13,7 +13,7 @@ jobs:
 
     # Environmental variables
     env:
-      driver_ROOT: /home/runner/work/cloud_microphysics
+      driver_ROOT: /home/runner/work/cloud_microphysics/cloud_microphysics
 
     # Workflow steps
     steps:
