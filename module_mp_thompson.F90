@@ -194,7 +194,8 @@ module module_mp_thompson
    real(wp), parameter, private :: Rv = 461.5
    real(wp), parameter, private :: oRv = 1./Rv
    real(wp), parameter, private :: R = 287.04
-   real(wp), parameter, private :: RoverRv = R*oRv
+   real(wp), parameter, private :: RoverRv = 0.622
+!   real(wp), parameter, private :: RoverRv = R*oRv
    real(wp), parameter, private :: Cp = 1004.0
    real(wp), parameter, private :: R_uni = 8.314                           !< J (mol K)-1
 
