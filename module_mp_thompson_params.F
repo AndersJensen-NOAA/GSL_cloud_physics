@@ -9,6 +9,7 @@ module module_mp_thompson_params
 
     LOGICAL, PARAMETER :: dustyIce = .true.
     LOGICAL, PARAMETER :: homogIce = .true.
+    LOGICAL, PARAMETER:: is_hail_aware = .false.
 
     INTEGER, PARAMETER :: IFDRY = 0
     REAL, PARAMETER :: T_0 = 273.15
@@ -17,8 +18,15 @@ module module_mp_thompson_params
 !..Densities of rain, snow, graupel, and cloud ice.
     REAL, PARAMETER:: rho_w2 = 1000.0
     REAL, PARAMETER:: rho_s2 = 100.0
-    REAL, PARAMETER:: rho_g = 500.0
+    ! REAL, PARAMETER:: rho_g = 500.0
     REAL, PARAMETER:: rho_i = 890.0
+    INTEGER, PARAMETER:: NRHG = 9
+    INTEGER, PARAMETER:: NRHG1 = 1
+    INTEGER :: dimNRHG
+
+    REAL, DIMENSION(NRHG), PARAMETER:: &
+        rho_g = (/50., 100., 200., 300., 400., 500., 600., 700., 800./)
+    INTEGER, PARAMETER :: idx_bg1 = 6 ! index for rhog when mp=8 or 28
 
 !..Prescribed number of cloud droplets.  Set according to known data or
 !.. roughly 100 per cc (100.E6 m^-3) for Maritime cases and
@@ -70,7 +78,11 @@ module module_mp_thompson_params
     REAL, PARAMETER:: bm_r = 3.0
     REAL, PARAMETER:: am_s = 0.069
     REAL, PARAMETER:: bm_s = 2.0
-    REAL, PARAMETER:: am_g = PI*rho_g/6.0
+!    REAL, PARAMETER:: am_g = PI*rho_g/6.0
+    REAL, DIMENSION(NRHG), PARAMETER:: am_g = (/              &
+    &            PI*rho_g(1)/6.0, PI*rho_g(2)/6.0, PI*rho_g(3)/6.0,    &
+    &            PI*rho_g(4)/6.0, PI*rho_g(5)/6.0, PI*rho_g(6)/6.0,    &
+    &            PI*rho_g(7)/6.0, PI*rho_g(8)/6.0, PI*rho_g(9)/6.0 /)
     REAL, PARAMETER:: bm_g = 3.0
     REAL, PARAMETER:: am_i = PI*rho_i/6.0
     REAL, PARAMETER:: bm_i = 3.0
@@ -84,8 +96,20 @@ module module_mp_thompson_params
     REAL, PARAMETER:: av_s = 40.0
     REAL, PARAMETER:: bv_s = 0.55
     REAL, PARAMETER:: fv_s = 100.0
-    REAL, PARAMETER:: av_g = 442.0
-    REAL, PARAMETER:: bv_g = 0.89
+!    REAL, PARAMETER:: av_g = 442.0
+!    REAL, PARAMETER:: bv_g = 0.89
+    REAL, PARAMETER:: av_g_old = 442.0
+    REAL, PARAMETER:: bv_g_old = 0.89
+    REAL, DIMENSION(NRHG):: & ! Computed from A. Heymsfield: Best - Reynolds relation
+    &    av_g = (/ 45.9173813, 67.0867386, 98.0158463, 122.353378,     &
+    &              143.204224, 161.794724, 178.762115, 194.488785,     &
+    &              209.225876/)
+    REAL, DIMENSION(NRHG):: & ! Computed from A. Heymsfield: Best - Reynolds relation
+    &    bv_g = (/0.640961647, 0.640961647, 0.640961647, 0.640961647,  &
+    &             0.640961647, 0.640961647, 0.640961647, 0.640961647,  &
+    &             0.640961647/)
+    REAL, PARAMETER:: a_coeff = 0.47244157
+    REAL, PARAMETER:: b_coeff = 0.54698726
     REAL, PARAMETER:: av_i = 1847.5
     REAL, PARAMETER:: bv_i = 1.0
     REAL, PARAMETER:: av_c = 0.316946E8
@@ -165,9 +189,9 @@ module module_mp_thompson_params
     INTEGER, PARAMETER:: ntb_c = 37
     INTEGER, PARAMETER:: ntb_i = 64
     INTEGER, PARAMETER:: ntb_r = 37
-    INTEGER, PARAMETER:: ntb_s = 28
-    INTEGER, PARAMETER:: ntb_g = 28
-    INTEGER, PARAMETER:: ntb_g1 = 28
+    INTEGER, PARAMETER:: ntb_s = 37
+    INTEGER, PARAMETER:: ntb_g = 37
+    INTEGER, PARAMETER:: ntb_g1 = 37
     INTEGER, PARAMETER:: ntb_r1 = 37
     INTEGER, PARAMETER:: ntb_i1 = 55
     INTEGER, PARAMETER:: ntb_t = 9
@@ -190,105 +214,108 @@ module module_mp_thompson_params
 
 !..Lookup tables for cloud water content (kg/m**3).
     REAL, DIMENSION(ntb_c), PARAMETER:: &
-    r_c = (/1.e-6,2.e-6,3.e-6,4.e-6,5.e-6,6.e-6,7.e-6,8.e-6,9.e-6, &
-            1.e-5,2.e-5,3.e-5,4.e-5,5.e-5,6.e-5,7.e-5,8.e-5,9.e-5, &
-            1.e-4,2.e-4,3.e-4,4.e-4,5.e-4,6.e-4,7.e-4,8.e-4,9.e-4, &
-            1.e-3,2.e-3,3.e-3,4.e-3,5.e-3,6.e-3,7.e-3,8.e-3,9.e-3, &
-            1.e-2/)
+        r_c = (/1.e-6,2.e-6,3.e-6,4.e-6,5.e-6,6.e-6,7.e-6,8.e-6,9.e-6, &
+        1.e-5,2.e-5,3.e-5,4.e-5,5.e-5,6.e-5,7.e-5,8.e-5,9.e-5, &
+        1.e-4,2.e-4,3.e-4,4.e-4,5.e-4,6.e-4,7.e-4,8.e-4,9.e-4, &
+        1.e-3,2.e-3,3.e-3,4.e-3,5.e-3,6.e-3,7.e-3,8.e-3,9.e-3, &
+        1.e-2/)
 
 !..Lookup tables for cloud ice content (kg/m**3).
     REAL, DIMENSION(ntb_i), PARAMETER:: &
-    r_i = (/1.e-10,2.e-10,3.e-10,4.e-10, &
-            5.e-10,6.e-10,7.e-10,8.e-10,9.e-10, &
-            1.e-9,2.e-9,3.e-9,4.e-9,5.e-9,6.e-9,7.e-9,8.e-9,9.e-9, &
-            1.e-8,2.e-8,3.e-8,4.e-8,5.e-8,6.e-8,7.e-8,8.e-8,9.e-8, &
-            1.e-7,2.e-7,3.e-7,4.e-7,5.e-7,6.e-7,7.e-7,8.e-7,9.e-7, &
-            1.e-6,2.e-6,3.e-6,4.e-6,5.e-6,6.e-6,7.e-6,8.e-6,9.e-6, &
-            1.e-5,2.e-5,3.e-5,4.e-5,5.e-5,6.e-5,7.e-5,8.e-5,9.e-5, &
-            1.e-4,2.e-4,3.e-4,4.e-4,5.e-4,6.e-4,7.e-4,8.e-4,9.e-4, &
-            1.e-3/)
+        r_i = (/1.e-10,2.e-10,3.e-10,4.e-10, &
+        5.e-10,6.e-10,7.e-10,8.e-10,9.e-10, &
+        1.e-9,2.e-9,3.e-9,4.e-9,5.e-9,6.e-9,7.e-9,8.e-9,9.e-9, &
+        1.e-8,2.e-8,3.e-8,4.e-8,5.e-8,6.e-8,7.e-8,8.e-8,9.e-8, &
+        1.e-7,2.e-7,3.e-7,4.e-7,5.e-7,6.e-7,7.e-7,8.e-7,9.e-7, &
+        1.e-6,2.e-6,3.e-6,4.e-6,5.e-6,6.e-6,7.e-6,8.e-6,9.e-6, &
+        1.e-5,2.e-5,3.e-5,4.e-5,5.e-5,6.e-5,7.e-5,8.e-5,9.e-5, &
+        1.e-4,2.e-4,3.e-4,4.e-4,5.e-4,6.e-4,7.e-4,8.e-4,9.e-4, &
+        1.e-3/)
 
 !..Lookup tables for rain content (kg/m**3).
     REAL, DIMENSION(ntb_r), PARAMETER:: &
-    r_r = (/1.e-6,2.e-6,3.e-6,4.e-6,5.e-6,6.e-6,7.e-6,8.e-6,9.e-6, &
-            1.e-5,2.e-5,3.e-5,4.e-5,5.e-5,6.e-5,7.e-5,8.e-5,9.e-5, &
-            1.e-4,2.e-4,3.e-4,4.e-4,5.e-4,6.e-4,7.e-4,8.e-4,9.e-4, &
-            1.e-3,2.e-3,3.e-3,4.e-3,5.e-3,6.e-3,7.e-3,8.e-3,9.e-3, &
-            1.e-2/)
+        r_r = (/1.e-6,2.e-6,3.e-6,4.e-6,5.e-6,6.e-6,7.e-6,8.e-6,9.e-6, &
+        1.e-5,2.e-5,3.e-5,4.e-5,5.e-5,6.e-5,7.e-5,8.e-5,9.e-5, &
+        1.e-4,2.e-4,3.e-4,4.e-4,5.e-4,6.e-4,7.e-4,8.e-4,9.e-4, &
+        1.e-3,2.e-3,3.e-3,4.e-3,5.e-3,6.e-3,7.e-3,8.e-3,9.e-3, &
+        1.e-2/)
 
 !..Lookup tables for graupel content (kg/m**3).
     REAL, DIMENSION(ntb_g), PARAMETER:: &
-    r_g = (/1.e-5,2.e-5,3.e-5,4.e-5,5.e-5,6.e-5,7.e-5,8.e-5,9.e-5, &
-            1.e-4,2.e-4,3.e-4,4.e-4,5.e-4,6.e-4,7.e-4,8.e-4,9.e-4, &
-            1.e-3,2.e-3,3.e-3,4.e-3,5.e-3,6.e-3,7.e-3,8.e-3,9.e-3, &
-            1.e-2/)
+        r_g = (/1.e-6,2.e-6,3.e-6,4.e-6,5.e-6,6.e-6,7.e-6,8.e-6,9.e-6, &
+        1.e-5,2.e-5,3.e-5,4.e-5,5.e-5,6.e-5,7.e-5,8.e-5,9.e-5, &
+        1.e-4,2.e-4,3.e-4,4.e-4,5.e-4,6.e-4,7.e-4,8.e-4,9.e-4, &
+        1.e-3,2.e-3,3.e-3,4.e-3,5.e-3,6.e-3,7.e-3,8.e-3,9.e-3, &
+        1.e-2/)
 
 !..Lookup tables for snow content (kg/m**3).
     REAL, DIMENSION(ntb_s), PARAMETER:: &
-    r_s = (/1.e-5,2.e-5,3.e-5,4.e-5,5.e-5,6.e-5,7.e-5,8.e-5,9.e-5, &
-            1.e-4,2.e-4,3.e-4,4.e-4,5.e-4,6.e-4,7.e-4,8.e-4,9.e-4, &
-            1.e-3,2.e-3,3.e-3,4.e-3,5.e-3,6.e-3,7.e-3,8.e-3,9.e-3, &
-            1.e-2/)
+        r_s = (/1.e-6,2.e-6,3.e-6,4.e-6,5.e-6,6.e-6,7.e-6,8.e-6,9.e-6, &
+        1.e-5,2.e-5,3.e-5,4.e-5,5.e-5,6.e-5,7.e-5,8.e-5,9.e-5, &
+        1.e-4,2.e-4,3.e-4,4.e-4,5.e-4,6.e-4,7.e-4,8.e-4,9.e-4, &
+        1.e-3,2.e-3,3.e-3,4.e-3,5.e-3,6.e-3,7.e-3,8.e-3,9.e-3, &
+        1.e-2/)
 
 !..Lookup tables for rain y-intercept parameter (/m**4).
     REAL, DIMENSION(ntb_r1), PARAMETER:: &
-    N0r_exp = (/1.e6,2.e6,3.e6,4.e6,5.e6,6.e6,7.e6,8.e6,9.e6, &
-                1.e7,2.e7,3.e7,4.e7,5.e7,6.e7,7.e7,8.e7,9.e7, &
-                1.e8,2.e8,3.e8,4.e8,5.e8,6.e8,7.e8,8.e8,9.e8, &
-                1.e9,2.e9,3.e9,4.e9,5.e9,6.e9,7.e9,8.e9,9.e9, &
-                1.e10/)
+        N0r_exp = (/1.e6,2.e6,3.e6,4.e6,5.e6,6.e6,7.e6,8.e6,9.e6, &
+        1.e7,2.e7,3.e7,4.e7,5.e7,6.e7,7.e7,8.e7,9.e7, &
+        1.e8,2.e8,3.e8,4.e8,5.e8,6.e8,7.e8,8.e8,9.e8, &
+        1.e9,2.e9,3.e9,4.e9,5.e9,6.e9,7.e9,8.e9,9.e9, &
+        1.e10/)
 
 !..Lookup tables for graupel y-intercept parameter (/m**4).
     REAL, DIMENSION(ntb_g1), PARAMETER:: &
-    N0g_exp = (/1.e4,2.e4,3.e4,4.e4,5.e4,6.e4,7.e4,8.e4,9.e4, &
-                1.e5,2.e5,3.e5,4.e5,5.e5,6.e5,7.e5,8.e5,9.e5, &
-                1.e6,2.e6,3.e6,4.e6,5.e6,6.e6,7.e6,8.e6,9.e6, &
-                1.e7/)
+        N0g_exp = (/1.e2,2.e2,3.e2,4.e2,5.e2,6.e2,7.e2,8.e2,9.e2, &
+        1.e3,2.e3,3.e3,4.e3,5.e3,6.e3,7.e3,8.e3,9.e3, &
+        1.e4,2.e4,3.e4,4.e4,5.e4,6.e4,7.e4,8.e4,9.e4, &
+        1.e5,2.e5,3.e5,4.e5,5.e5,6.e5,7.e5,8.e5,9.e5, &
+        1.e6/)
 
 !..Lookup tables for ice number concentration (/m**3).
     REAL, DIMENSION(ntb_i1), PARAMETER:: &
-    Nt_i = (/1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0, &
-             1.e1,2.e1,3.e1,4.e1,5.e1,6.e1,7.e1,8.e1,9.e1, &
-             1.e2,2.e2,3.e2,4.e2,5.e2,6.e2,7.e2,8.e2,9.e2, &
-             1.e3,2.e3,3.e3,4.e3,5.e3,6.e3,7.e3,8.e3,9.e3, &
-             1.e4,2.e4,3.e4,4.e4,5.e4,6.e4,7.e4,8.e4,9.e4, &
-             1.e5,2.e5,3.e5,4.e5,5.e5,6.e5,7.e5,8.e5,9.e5, &
-             1.e6/)
+        Nt_i = (/1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0, &
+        1.e1,2.e1,3.e1,4.e1,5.e1,6.e1,7.e1,8.e1,9.e1, &
+        1.e2,2.e2,3.e2,4.e2,5.e2,6.e2,7.e2,8.e2,9.e2, &
+        1.e3,2.e3,3.e3,4.e3,5.e3,6.e3,7.e3,8.e3,9.e3, &
+        1.e4,2.e4,3.e4,4.e4,5.e4,6.e4,7.e4,8.e4,9.e4, &
+        1.e5,2.e5,3.e5,4.e5,5.e5,6.e5,7.e5,8.e5,9.e5, &
+        1.e6/)
 
 !..Aerosol table parameter: Number of available aerosols, vertical
 !.. velocity, temperature, aerosol mean radius, and hygroscopicity.
     REAL, DIMENSION(ntb_arc), PARAMETER:: &
-    ta_Na = (/10.0, 31.6, 100.0, 316.0, 1000.0, 3160.0, 10000.0/)
+        ta_Na = (/10.0, 31.6, 100.0, 316.0, 1000.0, 3160.0, 10000.0/)
     REAL, DIMENSION(ntb_arw), PARAMETER:: &
-    ta_Ww = (/0.01, 0.0316, 0.1, 0.316, 1.0, 3.16, 10.0, 31.6, 100.0/)
+        ta_Ww = (/0.01, 0.0316, 0.1, 0.316, 1.0, 3.16, 10.0, 31.6, 100.0/)
     REAL, DIMENSION(ntb_art), PARAMETER:: &
-    ta_Tk = (/243.15, 253.15, 263.15, 273.15, 283.15, 293.15, 303.15/)
+        ta_Tk = (/243.15, 253.15, 263.15, 273.15, 283.15, 293.15, 303.15/)
     REAL, DIMENSION(ntb_arr), PARAMETER:: &
-    ta_Ra = (/0.01, 0.02, 0.04, 0.08, 0.16/)
+        ta_Ra = (/0.01, 0.02, 0.04, 0.08, 0.16/)
     REAL, DIMENSION(ntb_ark), PARAMETER:: &
-    ta_Ka = (/0.2, 0.4, 0.6, 0.8/)
+        ta_Ka = (/0.2, 0.4, 0.6, 0.8/)
 
 !..Lookup tables for IN concentration (/m**3) from 0.001 to 1000/Liter.
     REAL, DIMENSION(ntb_IN), PARAMETER:: &
-    Nt_IN = (/1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0, &
-             1.e1,2.e1,3.e1,4.e1,5.e1,6.e1,7.e1,8.e1,9.e1, &
-             1.e2,2.e2,3.e2,4.e2,5.e2,6.e2,7.e2,8.e2,9.e2, &
-             1.e3,2.e3,3.e3,4.e3,5.e3,6.e3,7.e3,8.e3,9.e3, &
-             1.e4,2.e4,3.e4,4.e4,5.e4,6.e4,7.e4,8.e4,9.e4, &
-             1.e5,2.e5,3.e5,4.e5,5.e5,6.e5,7.e5,8.e5,9.e5, &
-             1.e6/)
+        Nt_IN = (/1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0, &
+        1.e1,2.e1,3.e1,4.e1,5.e1,6.e1,7.e1,8.e1,9.e1, &
+        1.e2,2.e2,3.e2,4.e2,5.e2,6.e2,7.e2,8.e2,9.e2, &
+        1.e3,2.e3,3.e3,4.e3,5.e3,6.e3,7.e3,8.e3,9.e3, &
+        1.e4,2.e4,3.e4,4.e4,5.e4,6.e4,7.e4,8.e4,9.e4, &
+        1.e5,2.e5,3.e5,4.e5,5.e5,6.e5,7.e5,8.e5,9.e5, &
+        1.e6/)
 
 !..For snow moments conversions (from Field et al. 2005)
     REAL, DIMENSION(10), PARAMETER:: &
-    sa = (/ 5.065339, -0.062659, -3.032362, 0.029469, -0.000285, &
-            0.31255,   0.000204,  0.003199, 0.0,      -0.015952/)
+        sa = (/ 5.065339, -0.062659, -3.032362, 0.029469, -0.000285, &
+        0.31255,   0.000204,  0.003199, 0.0,      -0.015952/)
     REAL, DIMENSION(10), PARAMETER:: &
-    sb = (/ 0.476221, -0.015896,  0.165977, 0.007468, -0.000141, &
-            0.060366,  0.000079,  0.000594, 0.0,      -0.003577/)
+        sb = (/ 0.476221, -0.015896,  0.165977, 0.007468, -0.000141, &
+        0.060366,  0.000079,  0.000594, 0.0,      -0.003577/)
 
 !..Temperatures (5 C interval 0 to -40) used in lookup tables.
     REAL, DIMENSION(ntb_t), PARAMETER:: &
-    Tc = (/-0.01, -5., -10., -15., -20., -25., -30., -35., -40./)
+        Tc = (/-0.01, -5., -10., -15., -20., -25., -30., -35., -40./)
 
 !..Lookup tables for various accretion/collection terms.
 !.. ntb_x refers to the number of elements for rain, snow, graupel,
@@ -299,24 +326,24 @@ module module_mp_thompson_params
 !     INTEGER, PARAMETER:: R4SIZE = 4
     INTEGER, PARAMETER:: R8SIZE = R8KIND
     INTEGER, PARAMETER:: R4SIZE = R4KIND
+    REAL (KIND=R8SIZE), ALLOCATABLE, DIMENSION(:,:,:,:,:)::             &
+        tcg_racg, tmr_racg, tcr_gacr,                           & ! tmg_gacr
+        tnr_racg, tnr_gacr
     REAL (KIND=R8SIZE), ALLOCATABLE, DIMENSION(:,:,:,:)::             &
-              tcg_racg, tmr_racg, tcr_gacr, tmg_gacr,                 &
-              tnr_racg, tnr_gacr
+        tcs_racs1, tmr_racs1, tcs_racs2, tmr_racs2,             &
+        tcr_sacr1, tms_sacr1, tcr_sacr2, tms_sacr2,             &
+        tnr_racs1, tnr_racs2, tnr_sacr1, tnr_sacr2
     REAL (KIND=R8SIZE), ALLOCATABLE, DIMENSION(:,:,:,:)::             &
-              tcs_racs1, tmr_racs1, tcs_racs2, tmr_racs2,             &
-              tcr_sacr1, tms_sacr1, tcr_sacr2, tms_sacr2,             &
-              tnr_racs1, tnr_racs2, tnr_sacr1, tnr_sacr2
+        tpi_qcfz, tni_qcfz
     REAL (KIND=R8SIZE), ALLOCATABLE, DIMENSION(:,:,:,:)::             &
-              tpi_qcfz, tni_qcfz
-    REAL (KIND=R8SIZE), ALLOCATABLE, DIMENSION(:,:,:,:)::             &
-              tpi_qrfz, tpg_qrfz, tni_qrfz, tnr_qrfz
+        tpi_qrfz, tpg_qrfz, tni_qrfz, tnr_qrfz
     REAL (KIND=R8SIZE), ALLOCATABLE, DIMENSION(:,:)::                 &
-              tps_iaus, tni_iaus, tpi_ide
+        tps_iaus, tni_iaus, tpi_ide
     REAL (KIND=R8SIZE), ALLOCATABLE, DIMENSION(:,:):: t_Efrw
     REAL (KIND=R8SIZE), ALLOCATABLE, DIMENSION(:,:):: t_Efsw
     REAL (KIND=R8SIZE), ALLOCATABLE, DIMENSION(:,:,:):: tnr_rev
     REAL (KIND=R8SIZE), ALLOCATABLE, DIMENSION(:,:,:)::               &
-              tpc_wev, tnc_wev
+        tpc_wev, tnc_wev
     REAL (KIND=R4SIZE), ALLOCATABLE, DIMENSION(:,:,:,:,:):: tnccn_act
 
 !..Variables holding a bunch of exponents and gamma values (cloud water,
@@ -327,10 +354,11 @@ module module_mp_thompson_params
     REAL:: oig1, oig2, obmi
     REAL, DIMENSION(13):: cre, crg
     REAL:: ore1, org1, org2, org3, obmr
-    REAL, DIMENSION(18):: cse, csg
+    REAL, DIMENSION(17):: cse, csg
     REAL:: oams, obms, ocms
-    REAL, DIMENSION(12):: cge, cgg
-    REAL:: oge1, ogg1, ogg2, ogg3, oamg, obmg, ocmg
+    REAL, DIMENSION(12,NRHG):: cge, cgg
+    REAL:: oge1, ogg1, ogg2, ogg3, obmg
+    REAL, DIMENSION(NRHG):: oamg, ocmg
 
 !..Declaration of precomputed constants in various rate eqns.
     REAL:: t1_qr_qc, t1_qr_qi, t2_qr_qi, t1_qg_qc, t1_qs_qc, t1_qs_qi
