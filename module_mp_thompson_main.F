@@ -2402,8 +2402,6 @@ contains
                     (nwfa1d(k)+nwfaten(k)*DT)))
                 nifa1d(k) = MAX(naIN1*0.01, MIN(9999.E6,                       &
                     (nifa1d(k)+nifaten(k)*DT)))
-                nbca1d(k) = MAX(5.55E6, MIN(9999.E6,                           &
-                    (nbca1d(k)+nbcaten(k)*DT)))
             endif
 
             if (qc1d(k) .le. R1) then
@@ -3738,7 +3736,7 @@ contains
                 &        + sb(7)*tc0*tc0*cse(1) + sb(8)*tc0*cse(1)*cse(1) &
                 &        + sb(9)*tc0*tc0*tc0 + sb(10)*cse(1)*cse(1)*cse(1)
                 smoc = a_ * smo2**b_
-                re_qs1d(k) = MAX(5.01.E-6, MIN(0.5*(smoc/smob), 999.E-6))
+                re_qs1d(k) = MAX(5.01E-6, MIN(0.5*(smoc/smob), 999.E-6))
             enddo
         endif
 
