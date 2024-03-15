@@ -16,8 +16,8 @@ module module_mp_thompson_params
     REAL, PARAMETER :: PI = 3.1415926536
 
 !..Densities of rain, snow, graupel, and cloud ice.
-    REAL, PARAMETER:: rho_w2 = 1000.0
-    REAL, PARAMETER:: rho_s2 = 100.0
+    REAL, PARAMETER:: rho_w2 = 1000.0 !AAJ change to rho_w2 to solve MPAS same var name conflict
+    REAL :: rho_s2 = 100.0 !AAJ change to rho_s2 to solve MPAS same var name conflict
     ! REAL, PARAMETER:: rho_g = 500.0
     REAL, PARAMETER:: rho_i = 890.0
     INTEGER, PARAMETER:: NRHG = 9
@@ -69,8 +69,8 @@ module module_mp_thompson_params
 !.. mixing ratio.  Also, when mu_g is non-zero, these become equiv
 !.. y-intercept for an exponential distrib and proper values are
 !.. computed based on same mixing ratio and total number concentration.
-    REAL, PARAMETER:: gonv_min = 1.E4
-    REAL, PARAMETER:: gonv_max = 3.E6
+    REAL, PARAMETER:: gonv_min = 1.E2
+    REAL, PARAMETER:: gonv_max = 1.E6
 
 !..Mass power law relations:  mass = am*D**bm
 !.. Snow from Field et al. (2005), others assume spherical form.
@@ -110,7 +110,7 @@ module module_mp_thompson_params
     &             0.640961647/)
     REAL, PARAMETER:: a_coeff = 0.47244157
     REAL, PARAMETER:: b_coeff = 0.54698726
-    REAL, PARAMETER:: av_i = 1847.5
+    REAL, PARAMETER:: av_i = 1493.9
     REAL, PARAMETER:: bv_i = 1.0
     REAL, PARAMETER:: av_c = 0.316946E8
     REAL, PARAMETER:: bv_c = 2.0
@@ -154,7 +154,7 @@ module module_mp_thompson_params
     REAL, PARAMETER:: Rv = 461.5
     REAL, PARAMETER:: oRv = 1./Rv
     REAL, PARAMETER:: R = 287.04
-    REAL, PARAMETER:: Cp2 = 1004.0
+    REAL, PARAMETER:: Cp2 = 1004.0 !AAJ change to Cp2 to solve MPAS same var name conflict
     REAL, PARAMETER:: R_uni = 8.314                           ! J (mol K)-1
 
     DOUBLE PRECISION, PARAMETER:: k_b = 1.38065E-23           ! Boltzmann constant [J/K]
@@ -175,8 +175,8 @@ module module_mp_thompson_params
     REAL, PARAMETER:: xm0i = 1.E-12
     REAL, PARAMETER:: D0c = 1.E-6
     REAL, PARAMETER:: D0r = 50.E-6
-    REAL, PARAMETER:: D0s = 200.E-6
-    REAL, PARAMETER:: D0g = 250.E-6
+    REAL, PARAMETER:: D0s = 300.E-6
+    REAL, PARAMETER:: D0g = 350.E-6
     REAL:: D0i, xm0s, xm0g
 
 !..Lookup table dimensions
@@ -324,8 +324,8 @@ module module_mp_thompson_params
 !.. allocatable (2009Jun12, J. Michalakes).
 !     INTEGER, PARAMETER:: R8SIZE = 8
 !     INTEGER, PARAMETER:: R4SIZE = 4
-    INTEGER, PARAMETER:: R8SIZE = R8KIND
-    INTEGER, PARAMETER:: R4SIZE = R4KIND
+    INTEGER, PARAMETER:: R8SIZE = R8KIND !MPAS kind
+    INTEGER, PARAMETER:: R4SIZE = R4KIND !MPAS kind
     REAL (KIND=R8SIZE), ALLOCATABLE, DIMENSION(:,:,:,:,:)::             &
         tcg_racg, tmr_racg, tcr_gacr,                           & ! tmg_gacr
         tnr_racg, tnr_gacr

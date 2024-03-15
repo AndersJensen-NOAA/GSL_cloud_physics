@@ -294,13 +294,18 @@ contains
             qv(k) = MAX(1.E-10, qv1d(k))
             pres(k) = p1d(k)
             rho(k) = 0.622*pres(k)/(R*temp(k)*(qv(k)+0.622))
-            nwfa(k) = MAX(11.1E6, MIN(9999.E6, nwfa1d(k)*rho(k)))
-            nifa(k) = MAX(naIN1*0.01, MIN(9999.E6, nifa1d(k)*rho(k)))
+            if (is_aerosol_aware) then
+                nwfa(k) = MAX(11.1E6, MIN(9999.E6, nwfa1d(k)*rho(k)))
+                nifa(k) = MAX(naIN1*0.01, MIN(9999.E6, nifa1d(k)*rho(k)))
+            else
+                nwfa(k) = MAX(11.1E6, MIN(9999.E6, nwfa1d(k)*rho(k)))
+                nifa(k) = MAX(naIN1*0.01, MIN(9999.E6, nifa1d(k)*rho(k)))
+            endif
 
             if (qc1d(k) .gt. R1) then
                 no_micro = .false.
                 rc(k) = qc1d(k)*rho(k)
-                nc(k) = MAX(2., nc1d(k)*rho(k))
+                nc(k) = MAX(2., MIN(nc1d(k)*rho(k), Nt_c_max))
                 L_qc(k) = .true.
                 nu_c = MIN(15, NINT(1000.E6/nc(k)) + 2)
                 lamc = (nc(k)*am_r*ccg(2,nu_c)*ocg1(nu_c)/rc(k))**obmr
@@ -326,8 +331,8 @@ contains
                 ri(k) = qi1d(k)*rho(k)
                 ni(k) = MAX(R2, ni1d(k)*rho(k))
                 if (ni(k).le. R2) then
-                    lami = cie(2)/25.E-6
-                    ni(k) = MIN(499.D3, cig(1)*oig2*ri(k)/am_i*lami**bm_i)
+                    lami = cie(2)/5.E-6
+                    ni(k) = MIN(999.D3, cig(1)*oig2*ri(k)/am_i*lami**bm_i)
                 endif
                 L_qi(k) = .true.
                 lami = (am_i*cig(2)*oig1*ni(k)/ri(k))**obmi
@@ -335,7 +340,7 @@ contains
                 xDi = (bm_i + mu_i + 1.) * ilami
                 if (xDi.lt. 5.E-6) then
                     lami = cie(2)/5.E-6
-                    ni(k) = MIN(499.D3, cig(1)*oig2*ri(k)/am_i*lami**bm_i)
+                    ni(k) = MIN(999.D3, cig(1)*oig2*ri(k)/am_i*lami**bm_i)
                 elseif (xDi.gt. 300.E-6) then
                     lami = cie(2)/300.E-6
                     ni(k) = cig(1)*oig2*ri(k)/am_i*lami**bm_i
@@ -689,10 +694,10 @@ contains
 
                 if (L_qs(k)) then
                     xDs = smoc(k) / smob(k)
-                    !AAJ            rho_s = MAX(rho_g(1), MIN(0.13/xDs, rho_i-100.))
+                    rho_s2 = MAX(rho_g(1), MIN(0.13/xDs, rho_i-100.))
                 else
                     xDs = 0.
-                    !AAJ            rho_s = 100.
+                    rho_s2 = 100.
                 endif
 
 !..Temperature lookup table indexes.
@@ -852,6 +857,7 @@ contains
                         idx = MIN(idx, nbs)
                         Ef_sw = t_Efsw(idx, INT(mvd_c(k)*1.E6))
                         prs_scw(k) = rhof(k)*t1_qs_qc*Ef_sw*rc(k)*smoe(k)
+                        prs_scw(k) = MIN(DBLE(rc(k)*odts), prs_scw(k))
                         pnc_scw(k) = rhof(k)*t1_qs_qc*Ef_sw*nc(k)*smoe(k)                ! Qc2M
                         pnc_scw(k) = MIN(DBLE(nc(k)*odts), pnc_scw(k))
                     endif
@@ -873,6 +879,7 @@ contains
                             Ef_gw = 0.77
                         endif
                         !!! Not sure what to do here - hail increases size rapidly here below melting level.
+                        if (temp(k).gt.T_0) Ef_gw = Ef_gw*0.1
                         t1_qg_qc = PI*.25*av_g(idx_bg(k)) * cgg(9,idx_bg(k))
                         prg_gcw(k) = rhof(k)*t1_qg_qc*Ef_gw*rc(k)*N0_g(k) &
                             *ilamg(k)**cge(9,idx_bg(k))
@@ -1031,7 +1038,6 @@ contains
                         pnr_rfz(k) = MIN(DBLE(nr(k)*odts), pnr_rfz(k))
                     elseif (rr(k).gt. R1 .and. temp(k).lt.HGFR) then
                         pri_rfz(k) = rr(k)*odts
-                        pri_rfz(k) = rr(k)*odts
                         pni_rfz(k) = nr(k)*odts
                     endif
                     pbg_rfz(k) = prg_rfz(k)/rho_i
@@ -1063,8 +1069,8 @@ contains
                     endif
 
 !..Freezing of aqueous aerosols based on Koop et al (2001, Nature)
-                    xni = smo0(k)+ni(k) + (pni_rfz(k)+pni_wfz(k)+pni_inu(k))*dtsave
-                    if (is_aerosol_aware .AND. homogIce .AND. (xni.le.500.E3)     &
+                    xni = ns(k)+ni(k) + (pni_rfz(k)+pni_wfz(k)+pni_inu(k))*dtsave
+                    if (is_aerosol_aware .AND. homogIce .AND. (xni.le.999.E3)     &
                     &                .AND.(temp(k).lt.238).AND.(ssati(k).ge.0.4) ) then
                         xnc = iceKoop(temp(k),qv(k),qvs(k),nwfa(k), dtsave)
                         pni_iha(k) = xnc*odts
@@ -1292,7 +1298,7 @@ contains
 !.. supersat again.
             sump = pri_inu(k) + pri_ide(k) + prs_ide(k) &
                 + prs_sde(k) + prg_gde(k) + pri_iha(k)
-            rate_max = (qv(k)-qvsi(k))*odts*0.999
+            rate_max = (qv(k)-qvsi(k))*rho(k)*odts*0.999
             if ( (sump.gt. eps .and. sump.gt. rate_max) .or. &
                 (sump.lt. -eps .and. sump.lt. rate_max) ) then
                 ratio = rate_max/sump
@@ -1465,7 +1471,7 @@ contains
                 xDi = (bm_i + mu_i + 1.) * ilami
                 if (xDi.lt. 5.E-6) then
                     lami = cie(2)/5.E-6
-                    xni = MIN(499.D3, cig(1)*oig2*xri/am_i*lami**bm_i)
+                    xni = MIN(999.D3, cig(1)*oig2*xri/am_i*lami**bm_i)
                     niten(k) = (xni-ni1d(k)*rho(k))*odts*orho
                 elseif (xDi.gt. 300.E-6) then
                     lami = cie(2)/300.E-6
@@ -1476,8 +1482,8 @@ contains
                 niten(k) = -ni1d(k)*odts
             endif
             xni=MAX(0.,(ni1d(k) + niten(k)*dtsave)*rho(k))
-            if (xni.gt.499.E3) &
-                niten(k) = (499.E3-ni1d(k)*rho(k))*odts*orho
+            if (xni.gt.999.E3) &
+                niten(k) = (999.E3-ni1d(k)*rho(k))*odts*orho
 
 !..Rain tendency
             qrten(k) = qrten(k) + (prr_wau(k) + prr_rcw(k) &
@@ -1623,7 +1629,7 @@ contains
         do k = kts, kte
             if ((qc1d(k) + qcten(k)*DT) .gt. R1) then
                 rc(k) = (qc1d(k) + qcten(k)*DT)*rho(k)
-                nc(k) = MAX(2., (nc1d(k) + ncten(k)*DT)*rho(k))
+                nc(k) = MAX(2., MIN((nc1d(k)+ncten(k)*DT)*rho(k), Nt_c_max))
                 if (.NOT. is_aerosol_aware) nc(k) = Nt_c
                 L_qc(k) = .true.
             else
@@ -1891,8 +1897,7 @@ contains
                 tten(k) = tten(k) + lvap(k)*ocp(k)*prw_vcd(k)*(1-IFDRY)
                 rc(k) = MAX(R1, (qc1d(k) + DT*qcten(k))*rho(k))
                 if (rc(k).eq.R1) L_qc(k) = .false.
-
-                nc(k) = MAX(2., (nc1d(k) + DT*ncten(k))*rho(k))
+                nc(k) = MAX(2., MIN((nc1d(k)+ncten(k)*DT)*rho(k), Nt_c_max))
                 if (.NOT. is_aerosol_aware) nc(k) = Nt_c
                 qv(k) = MAX(1.E-10, qv1d(k) + DT*qvten(k))
                 temp(k) = t1d(k) + DT*tten(k)
@@ -2386,11 +2391,20 @@ contains
             t1d(k)  = t1d(k) + tten(k)*DT
             qv1d(k) = MAX(1.E-10, qv1d(k) + qvten(k)*DT)
             qc1d(k) = qc1d(k) + qcten(k)*DT
-            nc1d(k) = MAX(2./rho(k), nc1d(k) + ncten(k)*DT)
-            nwfa1d(k) = MAX(11.1E6/rho(k), MIN(9999.E6/rho(k),             &
-                (nwfa1d(k)+nwfaten(k)*DT)))
-            nifa1d(k) = MAX(naIN1*0.01, MIN(9999.E6/rho(k),                &
-                (nifa1d(k)+nifaten(k)*DT)))
+            nc1d(k) = MAX(2./rho(k), MIN(nc1d(k) + ncten(k)*DT, Nt_c_max))
+            if (is_aerosol_aware) then
+                nwfa1d(k) = MAX(11.1E6, MIN(9999.E6,                           &
+                    (nwfa1d(k)+nwfaten(k)*DT)))
+                nifa1d(k) = MAX(naIN1*0.01, MIN(9999.E6,                       &
+                    (nifa1d(k)+nifaten(k)*DT)))
+            else
+                nwfa1d(k) = MAX(11.1E6, MIN(9999.E6,                           &
+                    (nwfa1d(k)+nwfaten(k)*DT)))
+                nifa1d(k) = MAX(naIN1*0.01, MIN(9999.E6,                       &
+                    (nifa1d(k)+nifaten(k)*DT)))
+                nbca1d(k) = MAX(5.55E6, MIN(9999.E6,                           &
+                    (nbca1d(k)+nbcaten(k)*DT)))
+            endif
 
             if (qc1d(k) .le. R1) then
                 qc1d(k) = 0.0
@@ -2423,7 +2437,7 @@ contains
                     lami = cie(2)/300.E-6
                 endif
                 ni1d(k) = MIN(cig(1)*oig2*qi1d(k)/am_i*lami**bm_i,           &
-                    499.D3/rho(k))
+                    999.D3/rho(k))
             endif
             qr1d(k) = qr1d(k) + qrten(k)*DT
             nr1d(k) = MAX(R2/rho(k), nr1d(k) + nrten(k)*DT)
@@ -3468,7 +3482,7 @@ contains
         X=MAX(-80.,T-273.16)
         ESI=C0+X*(C1+X*(C2+X*(C3+X*(C4+X*(C5+X*(C6+X*(C7+X*C8)))))))
         ESI=MIN(ESI, P*0.15)
-        RSIF=.622*ESI/(P-ESI)
+        RSIF=.622*ESI/max(1.e-4,(P-ESI))
 
 !    ALTERNATIVE
 !  ; Source: Murphy and Koop, Review of the vapour pressure of ice and
@@ -3538,7 +3552,7 @@ contains
 !        mux = hx*p_alpha*n_in*rho
 !        xni = mux*((6700.*nifa)-200.)/((6700.*5.E5)-200.)
 !     elseif (satw.ge.0.985 .and. tempc.gt.HGFR-273.15) then
-        nifa_cc = nifa*RHO_NOT0*1.E-6/rho
+        nifa_cc = MAX(0.5, nifa*RHO_NOT0*1.E-6/rho)
 !        xni  = 3.*nifa_cc**(1.25)*exp((0.46*(-tempc))-11.6)              !  [DeMott, 2015]
         xni = (5.94e-5*(-tempc)**3.33)                                 & !  [DeMott, 2010]
             * (nifa_cc**((-0.0264*(tempc))+0.0033))
@@ -3655,7 +3669,7 @@ contains
         do k = kts, kte
             rho(k) = 0.622*p1d(k)/(R*t1d(k)*(qv1d(k)+0.622))
             rc(k) = MAX(R1, qc1d(k)*rho(k))
-            nc(k) = MAX(R2, nc1d(k)*rho(k))
+            nc(k) = MAX(2., MIN(nc1d(k)*rho(k), Nt_c_max))
             if (.NOT. is_aerosol_aware) nc(k) = Nt_c
             if (rc(k).gt.R1 .and. nc(k).gt.R2) has_qc = .true.
             ri(k) = MAX(R1, qi1d(k)*rho(k))
@@ -3684,7 +3698,7 @@ contains
             do k = kts, kte
                 if (ri(k).le.R1 .or. ni(k).le.R2) CYCLE
                 lami = (am_i*cig(2)*oig1*ni(k)/ri(k))**obmi
-                re_qi1d(k) = MAX(5.01E-6, MIN(SNGL(0.5D0 * DBLE(3.+mu_i)/lami), 125.E-6))
+                re_qi1d(k) = MAX(2.51E-6, MIN(SNGL(0.5D0 * DBLE(3.+mu_i)/lami), 125.E-6))
             enddo
         endif
 
@@ -3724,7 +3738,7 @@ contains
                 &        + sb(7)*tc0*tc0*cse(1) + sb(8)*tc0*cse(1)*cse(1) &
                 &        + sb(9)*tc0*tc0*tc0 + sb(10)*cse(1)*cse(1)*cse(1)
                 smoc = a_ * smo2**b_
-                re_qs1d(k) = MAX(10.E-6, MIN(0.5*(smoc/smob), 999.E-6))
+                re_qs1d(k) = MAX(5.01.E-6, MIN(0.5*(smoc/smob), 999.E-6))
             enddo
         endif
 

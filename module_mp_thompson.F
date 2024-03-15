@@ -428,9 +428,15 @@ CONTAINS
         integer:: mp_unit
 
 !..Allocate space for lookup tables (J. Michalakes 2009Jun08).
+        ! AAJ hail aware is off for now
+        ! if (PRESENT(ng)) then
+        !     is_hail_aware = .TRUE.
+        !     dimNRHG = NRHG
+        ! else
         av_g(idx_bg1) = av_g_old
         bv_g(idx_bg1) = bv_g_old
         dimNRHG = NRHG1
+        ! endif
         micro_init = .FALSE.
 
 !=================================================================================================================
@@ -674,8 +680,8 @@ CONTAINS
             xDx(1) = D0i*1.0d0
             xDx(nbi+1) = 2.0d0*D0s
             do n = 2, nbi
-                xDx(n) = DEXP(DFLOAT(n-1)/DFLOAT(nbi) &
-                    *DLOG(xDx(nbi+1)/xDx(1)) +DLOG(xDx(1)))
+                xDx(n) = DEXP(REAL(n-1,KIND=R8SIZE)/REAL(nbi,KIND=R8SIZE) & 
+                        *DLOG(xDx(nbi+1)/xDx(1)) +DLOG(xDx(1)))
             enddo
             do n = 1, nbi
                 Di(n) = DSQRT(xDx(n)*xDx(n+1))
@@ -686,7 +692,7 @@ CONTAINS
             xDx(1) = D0r*1.0d0
             xDx(nbr+1) = 0.005d0
             do n = 2, nbr
-                xDx(n) = DEXP(DFLOAT(n-1)/DFLOAT(nbr) &
+                xDx(n) = DEXP(REAL(n-1,KIND=R8SIZE)/REAL(nbr,KIND=R8SIZE) &
                     *DLOG(xDx(nbr+1)/xDx(1)) +DLOG(xDx(1)))
             enddo
             do n = 1, nbr
@@ -698,7 +704,7 @@ CONTAINS
             xDx(1) = D0s*1.0d0
             xDx(nbs+1) = 0.02d0
             do n = 2, nbs
-                xDx(n) = DEXP(DFLOAT(n-1)/DFLOAT(nbs) &
+                xDx(n) = DEXP(REAL(n-1,KIND=R8SIZE)/REAL(nbs,KIND=R8SIZE) &
                     *DLOG(xDx(nbs+1)/xDx(1)) +DLOG(xDx(1)))
             enddo
             do n = 1, nbs
@@ -710,7 +716,7 @@ CONTAINS
             xDx(1) = D0g*1.0d0
             xDx(nbg+1) = 0.05d0
             do n = 2, nbg
-                xDx(n) = DEXP(DFLOAT(n-1)/DFLOAT(nbg) &
+                xDx(n) = DEXP(REAL(n-1,KIND=R8SIZE)/REAL(nbg,KIND=R8SIZE) &
                     *DLOG(xDx(nbg+1)/xDx(1)) +DLOG(xDx(1)))
             enddo
             do n = 1, nbg
@@ -722,7 +728,7 @@ CONTAINS
             xDx(1) = 1.0d0
             xDx(nbc+1) = 3000.0d0
             do n = 2, nbc
-                xDx(n) = DEXP(DFLOAT(n-1)/DFLOAT(nbc)                          &
+                xDx(n) = DEXP(REAL(n-1,KIND=R8SIZE)/REAL(nbc,KIND=R8SIZE)                          &
                     *DLOG(xDx(nbc+1)/xDx(1)) +DLOG(xDx(1)))
             enddo
             do n = 1, nbc
@@ -840,6 +846,16 @@ CONTAINS
 !..Check that the look-up tables are available.
             if(.not. l_mp_tables) return
 
+!..Read a static file containing CCN activation of aerosols. The
+!.. data were created from a parcel model by Feingold & Heymsfield with
+!.. further changes by Eidhammer and Kriedenweis.
+            
+! AAJ aerosol aware is off. Add this to the build table functionality
+! for MPAS
+            ! if (is_aerosol_aware) then
+            !     call table_ccnAct
+            !  endif
+
 !..Collision efficiency between rain/snow and cloud water.
 !     call physics_message('--- creating qc collision eff tables')
             call table_Efrw
@@ -863,7 +879,7 @@ CONTAINS
             read(mp_unit) tcg_racg
             read(mp_unit) tmr_racg
             read(mp_unit) tcr_gacr
-!      read(mp_unit) tmg_gacr
+            ! read(mp_unit) tmg_gacr
             read(mp_unit) tnr_racg
             read(mp_unit) tnr_gacr
             close(unit=mp_unit)
@@ -995,7 +1011,7 @@ CONTAINS
 !..This is a wrapper routine designed to transfer values from 3D to 1D.
 !+---+-----------------------------------------------------------------+
     SUBROUTINE mp_gt_driver(qv, qc, qr, qi, qs, qg, qb, ni, nr, nc, ng,&
-        nwfa, nifa, nwfa2d,                        &
+        nwfa, nifa, nwfa2d, nifa2d,                       &
         th, pii, p, w, dz, dt_in, itimestep,       &
         RAINNC, RAINNCV, &
         SNOWNC, SNOWNCV, &
@@ -1020,7 +1036,7 @@ CONTAINS
             qv, qc, qr, qi, qs, qg, ni, nr, th
         REAL, DIMENSION(ims:ime, kms:kme, jms:jme), OPTIONAL, INTENT(INOUT):: &
             nc, nwfa, nifa, qb, ng
-        REAL, DIMENSION(ims:ime, jms:jme), OPTIONAL, INTENT(IN):: nwfa2d
+        REAL, DIMENSION(ims:ime, jms:jme), OPTIONAL, INTENT(IN):: nwfa2d, nifa2d
         REAL, DIMENSION(ims:ime, kms:kme, jms:jme), INTENT(INOUT):: &
             re_cloud, re_ice, re_snow
         INTEGER, INTENT(IN):: has_reqc, has_reqi, has_reqs
@@ -1236,7 +1252,7 @@ CONTAINS
                 if (is_aerosol_aware) then
 !-GT        nwfa1d(kts) = nwfa1
                     nwfa1d(kts) = nwfa1d(kts) + nwfa2d(i,j)*dt_in
-
+                    nifa1d(kts) = nifa1d(kts) + nifa2d(i,j)*dt_in
                     do k = kts, kte
                         nc(i,k,j) = nc1d(k)
                         nwfa(i,k,j) = nwfa1d(k)
@@ -3634,8 +3650,6 @@ CONTAINS
                 - 0.002362E12*Dr(n2)*Dr(n2)*Dr(n2)*Dr(n2)
         enddo
 
-        write(0,*) 'AAJ', NRHGtable
-
         do n3 = 1, NRHGtable
             do n = 1, nbg
                 ! idx_bg indexes module coefficients, not vg
@@ -3646,16 +3660,10 @@ CONTAINS
             enddo
         enddo
 
-        write(0,*) 'AAJ 2', NRHGtable
-        write(0,*) vg
-
         km_s = 0
         km_e = ntb_r*ntb_r1 - 1
 
-        write(0,*) 'AAJ 3', km_e
-
         do km = km_s, km_e
-            write(0,*) km
             m = km / ntb_r1 + 1
             k = mod( km , ntb_r1 ) + 1
 
@@ -3930,7 +3938,7 @@ CONTAINS
             k = mod( km , 45 ) + 1
             T_adjust = MAX(-3.0, MIN(3.0 - ALOG10(Nt_IN(m)), 3.0))
             !         print*, ' Freezing water for temp = ', -k
-            Texp = DEXP( DFLOAT(k) - T_adjust*1.0D0 ) - 1.0D0
+            Texp = DEXP( REAL(k,KIND=R8SIZE) - T_adjust*1.0D0 ) - 1.0D0
             do j = 1, ntb_r1
                 do i = 1, ntb_r
                     lam_exp = (N0r_exp(j)*am_r*crg(1)/r_r(i))**ore1
