@@ -59,7 +59,7 @@
 
 module module_mp_thompson
 
-   use module_mp_thompson_parameters
+   use module_mp_thompson_params
    use module_mp_thompson_main
    use machine, only: wp => kind_phys, sp => kind_sngl_prec, dp => kind_dbl_prec
    use module_mp_radar
@@ -68,7 +68,7 @@ module module_mp_thompson
    use mpi
 #endif
 
-   implicit none
+   ! implicit none
 
    ! logical, parameter, private :: iiwarm = .false.
    ! logical, private :: is_aerosol_aware = .false.
@@ -454,8 +454,8 @@ module module_mp_thompson
          character(len=*), intent(inout) :: errmsg
          integer,          intent(inout) :: errflg
 
-         integer:: i, j, k, l, m, n
-         logical:: micro_init
+         integer :: i, j, k, l, m, n
+         logical :: micro_init
          real(wp) :: stime, etime
          logical, parameter :: precomputed_tables = .FALSE.
 
@@ -478,20 +478,24 @@ module module_mp_thompson
             end if
          end if
 
+         av_g(idx_bg1) = av_g_old
+         bv_g(idx_bg1) = bv_g_old
+         dimNRHG = NRHG1
+         
          micro_init = .FALSE.
 
 !> - Allocate space for lookup tables (J. Michalakes 2009Jun08).
 
          if (.NOT. ALLOCATED(tcg_racg) ) then
-            ALLOCATE(tcg_racg(ntb_g1,ntb_g,ntb_r1,ntb_r))
+            ALLOCATE(tcg_racg(ntb_g1,ntb_g,dimNRHG,ntb_r1,ntb_r))
             micro_init = .TRUE.
          endif
 
-         if (.NOT. ALLOCATED(tmr_racg)) ALLOCATE(tmr_racg(ntb_g1,ntb_g,ntb_r1,ntb_r))
-         if (.NOT. ALLOCATED(tcr_gacr)) ALLOCATE(tcr_gacr(ntb_g1,ntb_g,ntb_r1,ntb_r))
-         if (.NOT. ALLOCATED(tmg_gacr)) ALLOCATE(tmg_gacr(ntb_g1,ntb_g,ntb_r1,ntb_r))
-         if (.NOT. ALLOCATED(tnr_racg)) ALLOCATE(tnr_racg(ntb_g1,ntb_g,ntb_r1,ntb_r))
-         if (.NOT. ALLOCATED(tnr_gacr)) ALLOCATE(tnr_gacr(ntb_g1,ntb_g,ntb_r1,ntb_r))
+         if (.NOT. ALLOCATED(tmr_racg)) ALLOCATE(tmr_racg(ntb_g1,ntb_g,dimNRHG,ntb_r1,ntb_r))
+         if (.NOT. ALLOCATED(tcr_gacr)) ALLOCATE(tcr_gacr(ntb_g1,ntb_g,dimNRHG,ntb_r1,ntb_r))
+         ! if (.NOT. ALLOCATED(tmg_gacr)) ALLOCATE(tmg_gacr(ntb_g1,ntb_g,dimNRHG,ntb_r1,ntb_r))
+         if (.NOT. ALLOCATED(tnr_racg)) ALLOCATE(tnr_racg(ntb_g1,ntb_g,dimNRHG,ntb_r1,ntb_r))
+         if (.NOT. ALLOCATED(tnr_gacr)) ALLOCATE(tnr_gacr(ntb_g1,ntb_g,dimNRHG,ntb_r1,ntb_r))
 
          if (.NOT. ALLOCATED(tcs_racs1)) ALLOCATE(tcs_racs1(ntb_s,ntb_t,ntb_r1,ntb_r))
          if (.NOT. ALLOCATED(tmr_racs1)) ALLOCATE(tmr_racs1(ntb_s,ntb_t,ntb_r1,ntb_r))
@@ -545,7 +549,7 @@ module module_mp_thompson
 !> - Compute minimum ice diam from mass, min snow/graupel mass from diam
          D0i = (xm0i/am_i)**(1./bm_i)
          xm0s = am_s * D0s**bm_s
-         xm0g = am_g * D0g**bm_g
+         xm0g = am_g(NRHG) * D0g**bm_g
 
 !> - Compute constants various exponents and gamma() associated with cloud,
 !! rain, snow, and graupel
@@ -620,37 +624,44 @@ module module_mp_thompson
          cse(14) = bm_s + bv_s
          cse(15) = mu_s + 1.
          cse(16) = 1.0 + (1.0 + bv_s)/2.
-         cse(17) = cse(16) + mu_s + 1.
-         cse(18) = bv_s + mu_s + 3.
-         do n = 1, 18
+         cse(17) = bm_s + bv_s + 2.
+
+         do n = 1, 17
             csg(n) = WGAMMA(cse(n))
          enddo
          oams = 1./am_s
          obms = 1./bm_s
          ocms = oams**obms
 
-         cge(1) = bm_g + 1.
-         cge(2) = mu_g + 1.
-         cge(3) = bm_g + mu_g + 1.
-         cge(4) = bm_g*2. + mu_g + 1.
-         cge(5) = bm_g*2. + mu_g + bv_g + 1.
-         cge(6) = bm_g + mu_g + bv_g + 1.
-         cge(7) = bm_g + mu_g + bv_g + 2.
-         cge(8) = bm_g + mu_g + bv_g + 3.
-         cge(9) = mu_g + bv_g + 3.
-         cge(10) = mu_g + 2.
-         cge(11) = 0.5*(bv_g + 5. + 2.*mu_g)
-         cge(12) = 0.5*(bv_g + 5.) + mu_g
-         do n = 1, 12
-            cgg(n) = WGAMMA(cge(n))
+         cge(1,:) = bm_g + 1.
+         cge(2,:) = mu_g + 1.
+         cge(3,:) = bm_g + mu_g + 1.
+         cge(4,:) = bm_g*2. + mu_g + 1.
+         cge(10,:) = mu_g + 2.
+         cge(12,:) = bm_g*0.5 + mu_g + 1.
+         do m = 1, NRHG
+             cge(5,m) = bm_g*2. + mu_g + bv_g(m) + 1.
+             cge(6,m) = bm_g + mu_g + bv_g(m) + 1.
+             cge(7,m) = bm_g*0.5 + mu_g + bv_g(m) + 1.
+             cge(8,m) = mu_g + bv_g(m) + 1.                                  ! not used
+             cge(9,m) = mu_g + bv_g(m) + 3.
+             cge(11,m) = 0.5*(bv_g(m) + 5. + 2.*mu_g)
+         enddo
+         do m = 1, NRHG
+             do n = 1, 12
+                 cgg(n,m) = WGAMMA(cge(n,m))
+             enddo
          enddo
          oamg = 1./am_g
          obmg = 1./bm_g
-         ocmg = oamg**obmg
-         oge1 = 1./cge(1)
-         ogg1 = 1./cgg(1)
-         ogg2 = 1./cgg(2)
-         ogg3 = 1./cgg(3)
+         do m = 1, NRHG
+             oamg(m) = 1./am_g(m)
+             ocmg(m) = oamg(m)**obmg
+         enddo
+         oge1 = 1./cge(1,1)
+         ogg1 = 1./cgg(1,1)
+         ogg2 = 1./cgg(2,1)
+         ogg3 = 1./cgg(3,1)
 
 !+---+-----------------------------------------------------------------+
 !> - Simplify various rate equations
@@ -662,7 +673,7 @@ module module_mp_thompson
          t2_qr_qi = PI*.25*am_r*av_r * crg(8)
 
 !>  - Compute graupel collecting cloud water
-         t1_qg_qc = PI*.25*av_g * cgg(9)
+!         t1_qg_qc = PI*.25*av_g * cgg(9)
 
 !>  - Compute snow collecting cloud water
          t1_qs_qc = PI*.25*av_s
@@ -683,12 +694,12 @@ module module_mp_thompson
          t2_qs_me = PI*4.*C_sqrd*olfus * 0.28*Sc3*SQRT(av_s)
 
 !>  - Compute sublimation/depositional growth of graupel
-         t1_qg_sd = 0.86 * cgg(10)
-         t2_qg_sd = 0.28*Sc3*SQRT(av_g) * cgg(11)
+         t1_qg_sd = 0.86 * cgg(10,1)
+!         t2_qg_sd = 0.28*Sc3*SQRT(av_g) * cgg(11)
 
 !>  - Compute melting of graupel
-         t1_qg_me = PI*4.*C_cube*olfus * 0.86 * cgg(10)
-         t2_qg_me = PI*4.*C_cube*olfus * 0.28*Sc3*SQRT(av_g) * cgg(11)
+         t1_qg_me = PI*4.*C_cube*olfus * 0.86 * cgg(10,1)
+!         t2_qg_me = PI*4.*C_cube*olfus * 0.28*Sc3*SQRT(av_g) * cgg(11)
 
 !>  - Compute constants for helping find lookup table indexes
          nic2 = nint(log10(r_c(1)))
@@ -791,14 +802,17 @@ module module_mp_thompson
 
          do m = 1, ntb_r
             do k = 1, ntb_r1
+               do n = 1, dimNRHG
+
                do j = 1, ntb_g
                   do i = 1, ntb_g1
-                     tcg_racg(i,j,k,m) = 0.0_dp
-                     tmr_racg(i,j,k,m) = 0.0_dp
-                     tcr_gacr(i,j,k,m) = 0.0_dp
-                     tmg_gacr(i,j,k,m) = 0.0_dp
-                     tnr_racg(i,j,k,m) = 0.0_dp
-                     tnr_gacr(i,j,k,m) = 0.0_dp
+                     tcg_racg(i,j,n,k,m) = 0.0_dp
+                     tmr_racg(i,j,n,k,m) = 0.0_dp
+                     tcr_gacr(i,j,n,k,m) = 0.0_dp
+                     !tmg_gacr(i,j,k,m) = 0.0_dp
+                     tnr_racg(i,j,n,k,m) = 0.0_dp
+                     tnr_gacr(i,j,n,k,m) = 0.0_dp
+                  enddo
                   enddo
                enddo
             enddo
@@ -928,7 +942,7 @@ module module_mp_thompson
          xam_s = am_s
          xbm_s = bm_s
          xmu_s = mu_s
-         xam_g = am_g
+         xam_g = am_g(idx_bg1)
          xbm_g = bm_g
          xmu_g = mu_g
          call radar_init
@@ -945,7 +959,7 @@ module module_mp_thompson
 !>  - Call qr_acr_qg() to create rain collecting graupel & graupel collecting rain table
          if (mpirank==mpiroot) write(*,*) '  creating rain collecting graupel table'
          call cpu_time(stime)
-         call qr_acr_qg
+         call qr_acr_qg(1)
          call cpu_time(etime)
          if (mpirank==mpiroot) print '("Computing rain collecting graupel table took ",f10.3," seconds.")', etime-stime
 
@@ -981,7 +995,7 @@ module module_mp_thompson
 !!This is a wrapper routine designed to transfer values from 3D to 1D.
 !!\section gen_mpgtdriver Thompson mp_gt_driver General Algorithm
 !> @{
-      subroutine mp_gt_driver(qv, qc, qr, qi, qs, qg, ni, nr, nc,     &
+      subroutine mp_gt_driver(qv, qc, qr, qi, qs, qg, qb, ni, nr, nc, ng,&
                               nwfa, nifa, nwfa2d, nifa2d,             &
                               tt, th, pii,                            &
                               p, w, dz, dt_in, dt_inner,              &
@@ -1039,7 +1053,7 @@ module module_mp_thompson
          real(wp), dimension(ims:ime, kms:kme, jms:jme), optional, intent(in):: &
                            pii
          real(wp), dimension(ims:ime, kms:kme, jms:jme), optional, intent(inout):: &
-                           nc, nwfa, nifa
+                           nc, nwfa, nifa, qb, ng
          real(wp), dimension(ims:ime, jms:jme), optional, intent(in):: nwfa2d, nifa2d
          integer, dimension(ims:ime, jms:jme), intent(in):: lsm
          real(wp), dimension(ims:ime, kms:kme, jms:jme), optional, intent(inout):: &
@@ -1096,8 +1110,8 @@ module module_mp_thompson
 
    !..Local variables
          real(wp), dimension(kts:kte):: &
-                           qv1d, qc1d, qi1d, qr1d, qs1d, qg1d, ni1d,     &
-                           nr1d, nc1d, nwfa1d, nifa1d,                   &
+                           qv1d, qc1d, qi1d, qr1d, qs1d, qg1d, qb1d, &
+                           ni1d, nr1d, nc1d, ng1d, nwfa1d, nifa1d, &
                            t1d, p1d, w1d, dz1d, rho, dBZ, pfil1, pfll1
    !..Extended diagnostics, single column arrays
          real(wp), dimension(:), allocatable::                              &
@@ -1124,6 +1138,8 @@ module module_mp_thompson
          real(wp), dimension(its:ite, jts:jte):: pcp_ra, pcp_sn, pcp_gr, pcp_ic
          real(wp) :: dt, pptrain, pptsnow, pptgraul, pptice
          real(wp) :: qc_max, qr_max, qs_max, qi_max, qg_max, ni_max, nr_max
+         real(wp) :: ygra1, zans1
+         real(dp) :: lamg, lam_exp, lamr, N0_min, N0_exp
          integer:: lsml
          real(wp) :: rand1, rand2, rand3, rand_pert_max
          integer:: i, j, k, m
@@ -1440,9 +1456,37 @@ module module_mp_thompson
                   enddo
                endif
 
+!..If not the variable-density graupel-hail hybrid, then set the vol mixing
+!.. ratio to mass mixing ratio divided by constant density (500kg/m3) value.
+
+               if (is_hail_aware) then
+                  do k = kts, kte
+                      ng1d(k) = ng(i,k,j)
+                      qb1d(k) = qb(i,k,j)
+                  enddo
+              else
+
+                  do k = kte, kts, -1
+                      if (qg1d(k).gt.R1) then
+                          ygra1 = alog10(max(1.E-9, qg1d(k)*rho(k)))
+                          zans1 = 3.0 + 2./7.*(ygra1+8.)
+                          zans1 = MAX(2., MIN(zans1, 6.))
+                          N0_exp = 10.**(zans1)
+                          lam_exp = (N0_exp*am_g(idx_bg1)*cgg(1,1)/(rho(k)*qg1d(k)))**oge1
+                          lamg = lam_exp * (cgg(3,1)*ogg2*ogg1)**obmg
+                          ng1d(k) = cgg(2,1)*ogg3*rho(k)*qg1d(k)*lamg**bm_g / am_g(idx_bg1)
+                          ng1d(k) = MAX(R2, ng1d(k)/rho(k))
+                          qb1d(k) = qg1d(k)/rho_g(idx_bg1)
+                      else
+                          ng1d(k) = 0
+                          qb1d(k) = 0
+                      endif
+                  enddo
+              endif
+
 !> - Call mp_thompson()
-               call mp_thompson(qv1d, qc1d, qi1d, qr1d, qs1d, qg1d, ni1d,     &
-                           nr1d, nc1d, nwfa1d, nifa1d, t1d, p1d, w1d, dz1d,  &
+               call mp_thompson(qv1d, qc1d, qi1d, qr1d, qs1d, qg1d, qb1d, ni1d,     &
+                           nr1d, nc1d, ng1d, nwfa1d, nifa1d, t1d, p1d, w1d, dz1d,  &
                            lsml, pptrain, pptsnow, pptgraul, pptice, &
 #if ( WRF_CHEM == 1 )
                      rainprod1d, evapprod1d, &
@@ -1519,6 +1563,13 @@ module module_mp_thompson
                      nifa(i,k,j) = nifa1d(k)
                   enddo
                endif
+              
+               if (is_hail_aware) then
+                  do k = kts, kte
+                      ng(i,k,j) = ng1d(k)
+                      qb(i,k,j) = qb1d(k)
+                  enddo
+              endif
 
                do k = kts, kte
                   qv(i,k,j) = qv1d(k)
@@ -1680,7 +1731,7 @@ module module_mp_thompson
                                  (nsteps>1 .and. istep==nsteps) .or. &
                                  (nsteps==1 .and. ndt==1)) THEN
 
-                  max_hail_diam_sfc(i,j) = hail_mass_99th_percentile(kts, kte, qg1d, t1d, p1d, qv1d)
+                  ! max_hail_diam_sfc(i,j) = hail_mass_99th_percentile(kts, kte, qg1d, t1d, p1d, qv1d)
 
 !> - Call calc_refl10cm()
 
@@ -1805,7 +1856,7 @@ module module_mp_thompson
       if (ALLOCATED(tcg_racg)) DEALLOCATE(tcg_racg)
       if (ALLOCATED(tmr_racg)) DEALLOCATE(tmr_racg)
       if (ALLOCATED(tcr_gacr)) DEALLOCATE(tcr_gacr)
-      if (ALLOCATED(tmg_gacr)) DEALLOCATE(tmg_gacr)
+      ! if (ALLOCATED(tmg_gacr)) DEALLOCATE(tmg_gacr)
       if (ALLOCATED(tnr_racg)) DEALLOCATE(tnr_racg)
       if (ALLOCATED(tnr_gacr)) DEALLOCATE(tnr_gacr)
 
@@ -4364,20 +4415,23 @@ module module_mp_thompson
 ! !+---+-----------------------------------------------------------------+
 ! !>\ingroup aathompson
 !! Rain collecting graupel (and inverse).  Explicit CE integration.
-   subroutine qr_acr_qg
+   subroutine qr_acr_qg(NRHGtable)
 
       implicit none
 
+      INTEGER, INTENT(IN) ::NRHGtable
+
 !..Local variables
-      integer:: i, j, k, m, n, n2
+      integer:: i, j, k, m, n, n2, n3, idx_bg
       integer:: km, km_s, km_e
-      real(dp), dimension(nbg):: vg, N_g
+      real(dp), dimension(nbg):: N_g
+      real(dp), dimension(nbg,NRHGtable):: vg
       real(dp), dimension(nbr):: vr, N_r
       real(dp) :: N0_r, N0_g, lam_exp, lamg, lamr
       real(dp) :: massg, massr, dvg, dvr, t1, t2, z1, z2, y1, y2
-      logical force_read_thompson, write_thompson_tables
-      logical lexist,lopen
-      integer good,ierr
+      logical :: force_read_thompson, write_thompson_tables
+      logical :: lexist,lopen
+      integer :: good,ierr
 
       force_read_thompson = .false.
       write_thompson_tables = .false.
@@ -4395,7 +4449,7 @@ module module_mp_thompson
           READ(63,err=1234) tcg_racg
           READ(63,err=1234) tmr_racg
           READ(63,err=1234) tcr_gacr
-          READ(63,err=1234) tmg_gacr
+          ! READ(63,err=1234) tmg_gacr
           READ(63,err=1234) tnr_racg
           READ(63,err=1234) tnr_gacr
 !sms$serial end
@@ -4439,8 +4493,14 @@ module module_mp_thompson
               + 0.07934E9*Dr(n2)*Dr(n2)*Dr(n2)                          &
               - 0.002362E12*Dr(n2)*Dr(n2)*Dr(n2)*Dr(n2)
         enddo
-        do n = 1, nbg
-         vg(n) = av_g*Dg(n)**bv_g
+        do n3 = 1, NRHGtable
+           do n = 1, nbg
+             ! idx_bg indexes module coefficients, not vg
+             !!         if (.not. is_hail_aware) idx_bg = idx_bg1
+             idx_bg = 6
+             !!         if (is_hail_aware) idx_bg = n3
+             vg(n,n3) = av_g(idx_bg)*Dg(n)**bv_g(idx_bg)
+           enddo
         enddo
 
 !..Note values returned from wrf_dm_decomp1d are zero-based, add 1 for
@@ -4463,15 +4523,19 @@ module module_mp_thompson
          do n2 = 1, nbr
             N_r(n2) = N0_r*Dr(n2)**mu_r *exp(real(-lamr*Dr(n2), kind=dp))*dtr(n2)
          enddo
+         do n3 = 1, NRHGtable
+            idx_bg = 6
+            !!          if (.not. is_hail_aware) idx_bg = idx_bg1
+            !!          if (is_hail_aware) idx_bg = n3
 
-         do j = 1, ntb_g
-         do i = 1, ntb_g1
-            lam_exp = (N0g_exp(i)*am_g*cgg(1)/r_g(j))**oge1
-            lamg = lam_exp * (cgg(3)*ogg2*ogg1)**obmg
-            N0_g = N0g_exp(i)/(cgg(2)*lam_exp) * lamg**cge(2)
-            do n = 1, nbg
-               N_g(n) = N0_g*Dg(n)**mu_g * exp(real(-lamg*Dg(n), kind=dp))*dtg(n)
-            enddo
+            do j = 1, ntb_g
+               do i = 1, ntb_g1
+                   lam_exp = (N0g_exp(i)*am_g(idx_bg)*cgg(1,1)/r_g(j))**oge1
+                   lamg = lam_exp * (cgg(3,1)*ogg2*ogg1)**obmg
+                   N0_g = N0g_exp(i)/(cgg(2,1)*lam_exp) * lamg**cge(2,1)
+                   do n = 1, nbg
+                       N_g(n) = N0_g*Dg(n)**mu_g * DEXP(-lamg*Dg(n))*dtg(n)
+                   enddo
 
             t1 = 0.0_dp
             t2 = 0.0_dp
@@ -4482,10 +4546,10 @@ module module_mp_thompson
             do n2 = 1, nbr
                massr = am_r * Dr(n2)**bm_r
                do n = 1, nbg
-                  massg = am_g * Dg(n)**bm_g
+                  massg = am_g(idx_bg) * Dg(n)**bm_g
 
-                  dvg = 0.5d0*((vr(n2) - vg(n)) + abs(real(vr(n2)-vg(n), kind=dp)))
-                  dvr = 0.5d0*((vg(n) - vr(n2)) + abs(real(vg(n)-vr(n2), kind=dp)))
+                  dvg = 0.5d0*((vr(n2) - vg(n,n3)) + abs(real(vr(n2)-vg(n,n3), kind=dp)))
+                  dvr = 0.5d0*((vg(n,n3) - vr(n2)) + abs(real(vg(n,n3)-vr(n2), kind=dp)))
 
                   t1 = t1+ PI*.25*Ef_rg*(Dg(n)+Dr(n2))*(Dg(n)+Dr(n2)) &
                       *dvg*massg * N_g(n)* N_r(n2)
@@ -4503,15 +4567,16 @@ module module_mp_thompson
                enddo
  97            continue
             enddo
-            tcg_racg(i,j,k,m) = t1
-            tmr_racg(i,j,k,m) = min(z1, r_r(m)*1.0_dp)
-            tcr_gacr(i,j,k,m) = t2
-            tmg_gacr(i,j,k,m) = min(z2, r_g(j)*1.0_dp)
-            tnr_racg(i,j,k,m) = y1
-            tnr_gacr(i,j,k,m) = y2
+            tcg_racg(i,j,n3,k,m) = t1
+            tmr_racg(i,j,n3,k,m) = min(z1, r_r(m)*1.0_dp)
+            tcr_gacr(i,j,n3,k,m) = t2
+            ! tmg_gacr(i,j,k,m) = min(z2, r_g(j)*1.0_dp)
+            tnr_racg(i,j,n3,k,m) = y1
+            tnr_gacr(i,j,n3,k,m) = y2
          enddo
          enddo
         enddo
+      enddo 
 
         IF ( write_thompson_tables ) THEN
           write(0,*) "Writing "//qr_acr_qg_file//" in Thompson MP init"
@@ -4519,7 +4584,7 @@ module module_mp_thompson
           WRITE(63,err=9234) tcg_racg
           WRITE(63,err=9234) tmr_racg
           WRITE(63,err=9234) tcr_gacr
-          WRITE(63,err=9234) tmg_gacr
+          ! WRITE(63,err=9234) tmg_gacr
           WRITE(63,err=9234) tnr_racg
           WRITE(63,err=9234) tnr_gacr
           CLOSE(63)
@@ -4804,6 +4869,7 @@ module module_mp_thompson
 
 !..Local variables
       integer:: i, j, k, m, n, n2
+      INTEGER:: km, km_s, km_e
       real(dp) :: N_r, N_c
       real(dp), dimension(nbr):: massr
       real(dp), dimension(nbc):: massc
@@ -4871,7 +4937,7 @@ module module_mp_thompson
           write(0,*) "ThompMP: computing freezeH2O"
         endif
 
-        orho_w = 1./rho_w
+        orho_w = 1./rho_w2
 
         do n2 = 1, nbr
          massr(n2) = am_r*Dr(n2)**bm_r
@@ -4881,9 +4947,10 @@ module module_mp_thompson
         enddo
 
 !..Freeze water (smallest drops become cloud ice, otherwise graupel).
-        do m = 1, ntb_IN
-        T_adjust = max(-3.0, min(3.0 - log10(Nt_IN(m)), 3.0))
-        do k = 1, 45
+        do km = km_s, km_e
+         m = km / 45 + 1
+         k = mod( km , 45 ) + 1
+         T_adjust = MAX(-3.0, MIN(3.0 - ALOG10(Nt_IN(m)), 3.0))
 !         print*, ' Freezing water for temp = ', -k
          Texp = exp( real(k, kind=dp) - T_adjust*1.0_dp ) - 1.0_dp
 !$OMP PARALLEL DO SCHEDULE(dynamic) num_threads(threads) &
@@ -4941,8 +5008,7 @@ module module_mp_thompson
          enddo
 !$OMP END PARALLEL DO
         enddo
-        enddo
-
+        
         IF ( write_thompson_tables ) THEN
           write(0,*) "Writing "//freeze_h2o_file//" in Thompson MP init"
           OPEN(63,file=freeze_h2o_file,form="unformatted",err=9234)
@@ -5062,8 +5128,8 @@ module module_mp_thompson
           vtr = -0.1021 + 4.932E3*Dr(i) - 0.9551E6*Dr(i)*Dr(i) &
               + 0.07934E9*Dr(i)*Dr(i)*Dr(i) &
               - 0.002362E12*Dr(i)*Dr(i)*Dr(i)*Dr(i)
-          stokes = Dc(j)*Dc(j)*vtr*rho_w/(9.*1.718E-5*Dr(i))
-          reynolds = 9.*stokes/(p*p*rho_w)
+          stokes = Dc(j)*Dc(j)*vtr*rho_w2/(9.*1.718E-5*Dr(i))
+          reynolds = 9.*stokes/(p*p*rho_w2)
 
           F = log(real(reynolds, kind=dp))
           G = -0.1007_dp - 0.358_dp*F + 0.0261_dp*F*F
@@ -5106,8 +5172,8 @@ module module_mp_thompson
                .or. vts.lt.1.E-3) then
           t_Efsw(i,j) = 0.0
          else
-          stokes = Dc(j)*Dc(j)*vts*rho_w/(9.*1.718E-5*Ds_m)
-          reynolds = 9.*stokes/(p*p*rho_w)
+          stokes = Dc(j)*Dc(j)*vts*rho_w2/(9.*1.718E-5*Ds_m)
+          reynolds = 9.*stokes/(p*p*rho_w2)
 
           F = log(real(reynolds, kind=dp))
           G = -0.1007_dp - 0.358_dp*F + 0.0261_dp*F*F
@@ -6057,9 +6123,28 @@ module module_mp_thompson
 !..Calculate y-intercept, slope values for graupel.
 !+---+-----------------------------------------------------------------+
 
-      if (ANY(L_qg .eqv. .true.)) then
-      call graupel_psd_parameters(kts, kte, rand1, rg, ilamg, N0_g)
-      endif
+      N0_min = gonv_max
+      k_0 = kts
+      do k = kte, kts, -1
+          if (temp(k).ge.270.65) k_0 = MAX(k_0, k)
+      enddo
+      do k = kte, kts, -1
+          if (k.gt.k_0 .and. L_qr(k) .and. mvd_r(k).gt.100.E-6) then
+              xslw1 = 4.01 + alog10(mvd_r(k))
+          else
+              xslw1 = 0.01
+          endif
+          ygra1 = 4.31 + alog10(max(5.E-5, rg(k)))
+          zans1 = 3.1 + (100./(300.*xslw1*ygra1/(10./xslw1+1.+0.25*ygra1)+30.+10.*ygra1))
+          N0_exp = 10.**(zans1)
+          N0_exp = MAX(DBLE(gonv_min), MIN(N0_exp, DBLE(gonv_max)))
+          N0_min = MIN(N0_exp, N0_min)
+          N0_exp = N0_min
+          lam_exp = (N0_exp*am_g(6)*cgg(1,6)/rg(k))**oge1
+          lamg = lam_exp * (cgg(3,6)*ogg2*ogg1)**obmg
+          ilamg(k) = 1./lamg
+          N0_g(k) = N0_exp/(cgg(2,6)*lam_exp) * lamg**cge(2,6)
+      enddo
 
 !+---+-----------------------------------------------------------------+
 !..Locate K-level of start of melting (k_0 is level above).
@@ -6086,11 +6171,11 @@ module module_mp_thompson
          ze_graupel(k) = 1.e-22
          if (L_qr(k)) ze_rain(k) = N0_r(k)*crg(4)*ilamr(k)**cre(4)
          if (L_qs(k)) ze_snow(k) = (0.176/0.93) * (6.0/PI)*(6.0/PI)     &
-     &                           * (am_s/900.0)*(am_s/900.0)*smoz(k)
+         &                           * (am_s/900.0)*(am_s/900.0)*smoz(k)
          if (L_qg(k)) ze_graupel(k) = (0.176/0.93) * (6.0/PI)*(6.0/PI)  &
-     &                              * (am_g/900.0)*(am_g/900.0)         &
-     &                              * N0_g(k)*cgg(4)*ilamg(k)**cge(4)
-      enddo
+         &                              * (am_g(6)/900.0)*(am_g(6)/900.0)         &
+         &                              * N0_g(k)*cgg(4,6)*ilamg(k)**cge(4,6)
+     enddo
 
 !+---+-----------------------------------------------------------------+
 !..Special case of melting ice (snow/graupel) particles.  Assume the
@@ -6100,104 +6185,104 @@ module module_mp_thompson
 !.. routines).
 !+---+-----------------------------------------------------------------+
 
-      if (.not. iiwarm .and. melti .and. k_0.ge.2) then
-       do k = k_0-1, kts, -1
+      ! if (.not. iiwarm .and. melti .and. k_0.ge.2) then
+      !  do k = k_0-1, kts, -1
 
-!..Reflectivity contributed by melting snow
-          if (allow_wet_snow .and. L_qs(k) .and. L_qs(k_0) ) then
-           SR = max(0.01, min(1.0 - rs(k)/(rs(k) + rr(k)), 0.99))
-           fmelt_s = real(SR*SR, kind=dp)
-           eta = 0.0_dp
-           oM3 = 1./smoc(k)
-           M0 = (smob(k)*oM3)
-           Mrat = smob(k)*M0*M0*M0
-           slam1 = M0 * Lam0
-           slam2 = M0 * Lam1
-           do n = 1, nrbins
-              x = am_s * xxDs(n)**bm_s
-              call rayleigh_soak_wetgraupel (x, real(ocms, kind=dp), real(obms, kind=dp), &
-     &              fmelt_s, melt_outside_s, m_w_0, m_i_0, lamda_radar, &
-     &              CBACK, mixingrulestring_s, matrixstring_s,          &
-     &              inclusionstring_s, hoststring_s,                    &
-     &              hostmatrixstring_s, hostinclusionstring_s)
-              f_d = Mrat*(Kap0*exp(real(-slam1*xxDs(n), kind=dp))                     &
-     &              + Kap1*(M0*xxDs(n))**mu_s * exp(real(-slam2*xxDs(n), kind=dp)))
-              eta = eta + f_d * CBACK * simpson(n) * xdts(n)
-           enddo
-           ze_snow(k) = SNGL(lamda4 / (pi5 * K_w) * eta)
-          endif
+! !..Reflectivity contributed by melting snow
+!           if (allow_wet_snow .and. L_qs(k) .and. L_qs(k_0) ) then
+!            SR = max(0.01, min(1.0 - rs(k)/(rs(k) + rr(k)), 0.99))
+!            fmelt_s = real(SR*SR, kind=dp)
+!            eta = 0.0_dp
+!            oM3 = 1./smoc(k)
+!            M0 = (smob(k)*oM3)
+!            Mrat = smob(k)*M0*M0*M0
+!            slam1 = M0 * Lam0
+!            slam2 = M0 * Lam1
+!            do n = 1, nrbins
+!               x = am_s * xxDs(n)**bm_s
+!               call rayleigh_soak_wetgraupel (x, real(ocms, kind=dp), real(obms, kind=dp), &
+!      &              fmelt_s, melt_outside_s, m_w_0, m_i_0, lamda_radar, &
+!      &              CBACK, mixingrulestring_s, matrixstring_s,          &
+!      &              inclusionstring_s, hoststring_s,                    &
+!      &              hostmatrixstring_s, hostinclusionstring_s)
+!               f_d = Mrat*(Kap0*exp(real(-slam1*xxDs(n), kind=dp))                     &
+!      &              + Kap1*(M0*xxDs(n))**mu_s * exp(real(-slam2*xxDs(n), kind=dp)))
+!               eta = eta + f_d * CBACK * simpson(n) * xdts(n)
+!            enddo
+!            ze_snow(k) = SNGL(lamda4 / (pi5 * K_w) * eta)
+!           endif
 
 !..Reflectivity contributed by melting graupel
-          if (allow_wet_graupel .and. L_qg(k) .and. L_qg(k_0) ) then
-           SR = max(0.01, min(1.0 - rg(k)/(rg(k) + rr(k)), 0.99))
-           fmelt_g = real(SR*SR, kind=dp)
-           eta = 0.0_dp
-           lamg = 1./ilamg(k)
-           do n = 1, nrbins
-              x = am_g * xxDg(n)**bm_g
-              call rayleigh_soak_wetgraupel (x, real(ocmg, kind=dp), real(obmg, kind=dp), &
-     &              fmelt_g, melt_outside_g, m_w_0, m_i_0, lamda_radar, &
-     &              CBACK, mixingrulestring_g, matrixstring_g,          &
-     &              inclusionstring_g, hoststring_g,                    &
-     &              hostmatrixstring_g, hostinclusionstring_g)
-              f_d = N0_g(k)*xxDg(n)**mu_g * exp(real(-lamg*xxDg(n), kind=dp))
-              eta = eta + f_d * CBACK * simpson(n) * xdtg(n)
-           enddo
-           ze_graupel(k) = SNGL(lamda4 / (pi5 * K_w) * eta)
-          endif
+   !        if (allow_wet_graupel .and. L_qg(k) .and. L_qg(k_0) ) then
+   !         SR = max(0.01, min(1.0 - rg(k)/(rg(k) + rr(k)), 0.99))
+   !         fmelt_g = real(SR*SR, kind=dp)
+   !         eta = 0.0_dp
+   !         lamg = 1./ilamg(k)
+   !         do n = 1, nrbins
+   !            x = am_g * xxDg(n)**bm_g
+   !            call rayleigh_soak_wetgraupel (x, real(ocmg, kind=dp), real(obmg, kind=dp), &
+   !   &              fmelt_g, melt_outside_g, m_w_0, m_i_0, lamda_radar, &
+   !   &              CBACK, mixingrulestring_g, matrixstring_g,          &
+   !   &              inclusionstring_g, hoststring_g,                    &
+   !   &              hostmatrixstring_g, hostinclusionstring_g)
+   !            f_d = N0_g(k)*xxDg(n)**mu_g * exp(real(-lamg*xxDg(n), kind=dp))
+   !            eta = eta + f_d * CBACK * simpson(n) * xdtg(n)
+   !         enddo
+   !         ze_graupel(k) = SNGL(lamda4 / (pi5 * K_w) * eta)
+   !        endif
 
-       enddo
-      endif
+   !     enddo
+   !    endif
 
       do k = kte, kts, -1
          dBZ(k) = 10.*log10((ze_rain(k)+ze_snow(k)+ze_graupel(k))*1.e18_dp)
       enddo
 
 !..Reflectivity-weighted terminal velocity (snow, rain, graupel, mix).
-      if (do_vt_dBZ) then
-         do k = kte, kts, -1
-            vt_dBZ(k) = 1.E-3
-            if (rs(k).gt.R2) then
-             Mrat = smob(k) / smoc(k)
-             ils1 = 1./(Mrat*Lam0 + fv_s)
-             ils2 = 1./(Mrat*Lam1 + fv_s)
-             t1_vts = Kap0*csg(5)*ils1**cse(5)
-             t2_vts = Kap1*Mrat**mu_s*csg(11)*ils2**cse(11)
-             ils1 = 1./(Mrat*Lam0)
-             ils2 = 1./(Mrat*Lam1)
-             t3_vts = Kap0*csg(6)*ils1**cse(6)
-             t4_vts = Kap1*Mrat**mu_s*csg(12)*ils2**cse(12)
-             vts_dbz_wt = rhof(k)*av_s * (t1_vts+t2_vts)/(t3_vts+t4_vts)
-             if (temp(k).ge.273.15 .and. temp(k).lt.275.15) then
-                vts_dbz_wt = vts_dbz_wt*1.5
-             elseif (temp(k).ge.275.15) then
-                vts_dbz_wt = vts_dbz_wt*2.0
-             endif
-            else
-             vts_dbz_wt = 1.E-3
-            endif
+      ! if (do_vt_dBZ) then
+      !    do k = kte, kts, -1
+      !       vt_dBZ(k) = 1.E-3
+      !       if (rs(k).gt.R2) then
+      !        Mrat = smob(k) / smoc(k)
+      !        ils1 = 1./(Mrat*Lam0 + fv_s)
+      !        ils2 = 1./(Mrat*Lam1 + fv_s)
+      !        t1_vts = Kap0*csg(5)*ils1**cse(5)
+      !        t2_vts = Kap1*Mrat**mu_s*csg(11)*ils2**cse(11)
+      !        ils1 = 1./(Mrat*Lam0)
+      !        ils2 = 1./(Mrat*Lam1)
+      !        t3_vts = Kap0*csg(6)*ils1**cse(6)
+      !        t4_vts = Kap1*Mrat**mu_s*csg(12)*ils2**cse(12)
+      !        vts_dbz_wt = rhof(k)*av_s * (t1_vts+t2_vts)/(t3_vts+t4_vts)
+      !        if (temp(k).ge.273.15 .and. temp(k).lt.275.15) then
+      !           vts_dbz_wt = vts_dbz_wt*1.5
+      !        elseif (temp(k).ge.275.15) then
+      !           vts_dbz_wt = vts_dbz_wt*2.0
+      !        endif
+      !       else
+      !        vts_dbz_wt = 1.E-3
+      !       endif
 
-            if (rr(k).gt.R1) then
-             lamr = 1./ilamr(k)
-             vtr_dbz_wt = rhof(k)*av_r*crg(13)*(lamr+fv_r)**(-cre(13))      &
-                        / (crg(4)*lamr**(-cre(4)))
-            else
-             vtr_dbz_wt = 1.E-3
-            endif
+      !       if (rr(k).gt.R1) then
+      !        lamr = 1./ilamr(k)
+      !        vtr_dbz_wt = rhof(k)*av_r*crg(13)*(lamr+fv_r)**(-cre(13))      &
+      !                   / (crg(4)*lamr**(-cre(4)))
+      !       else
+      !        vtr_dbz_wt = 1.E-3
+      !       endif
 
-            if (rg(k).gt.R2) then
-             lamg = 1./ilamg(k)
-             vtg_dbz_wt = rhof(k)*av_g*cgg(5)*lamg**(-cge(5))               &
-                        / (cgg(4)*lamg**(-cge(4)))
-            else
-             vtg_dbz_wt = 1.E-3
-            endif
+      !       if (rg(k).gt.R2) then
+      !        lamg = 1./ilamg(k)
+      !        vtg_dbz_wt = rhof(k)*av_g*cgg(5)*lamg**(-cge(5))               &
+      !                   / (cgg(4)*lamg**(-cge(4)))
+      !       else
+      !        vtg_dbz_wt = 1.E-3
+      !       endif
 
-            vt_dBZ(k) = (vts_dbz_wt*ze_snow(k) + vtr_dbz_wt*ze_rain(k)      &
-                         + vtg_dbz_wt*ze_graupel(k))                        &
-                         / (ze_rain(k)+ze_snow(k)+ze_graupel(k))
-         enddo
-      endif
+      !       vt_dBZ(k) = (vts_dbz_wt*ze_snow(k) + vtr_dbz_wt*ze_rain(k)      &
+      !                    + vtg_dbz_wt*ze_graupel(k))                        &
+      !                    / (ze_rain(k)+ze_snow(k)+ze_graupel(k))
+      !    enddo
+      ! endif
 
    end subroutine calc_refl10cm
 ! !
