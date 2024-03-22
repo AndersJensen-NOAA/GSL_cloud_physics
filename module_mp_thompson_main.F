@@ -1,6 +1,6 @@
 module module_mp_thompson_main
 
-    use mpas_kind_types
+    use mpas_kind_types, only: wp => RKIND, sp => R4KIND, dp => R8KIND
     use module_mp_thompson_params
     use mpas_atmphys_functions, only: gammp,wgamma,rslf,rsif
     use mp_radar

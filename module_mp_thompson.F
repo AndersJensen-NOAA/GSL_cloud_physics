@@ -61,7 +61,8 @@
 !
 MODULE module_mp_thompson
 
-    use mpas_kind_types
+    use mpas_kind_types, only: wp => RKIND, sp => R4KIND, dp => R8KIND
+
     use module_mp_thompson_params
     use module_mp_thompson_main
     use mpas_atmphys_functions, only: gammp,wgamma,rslf,rsif
@@ -419,13 +420,13 @@ CONTAINS
 !=================================================================================================================
 
 !input arguments:
-        logical,intent(in):: l_mp_tables
+        logical,intent(in) :: l_mp_tables
 
-        integer,parameter:: open_OK = 0
-        integer:: i,j,k,l,m,n
-        integer:: istat
-        logical:: micro_init
-        integer:: mp_unit
+        integer,parameter :: open_OK = 0
+        integer :: i,j,k,l,m,n
+        integer :: istat
+        logical :: micro_init
+        integer :: mp_unit
 
 !..Allocate space for lookup tables (J. Michalakes 2009Jun08).
         ! AAJ hail aware is off for now
@@ -680,7 +681,7 @@ CONTAINS
             xDx(1) = D0i*1.0d0
             xDx(nbi+1) = 2.0d0*D0s
             do n = 2, nbi
-                xDx(n) = DEXP(REAL(n-1,KIND=R8SIZE)/REAL(nbi,KIND=R8SIZE) & 
+                xDx(n) = DEXP(REAL(n-1,KIND=dp)/REAL(nbi,KIND=dp) & 
                         *DLOG(xDx(nbi+1)/xDx(1)) +DLOG(xDx(1)))
             enddo
             do n = 1, nbi
@@ -692,7 +693,7 @@ CONTAINS
             xDx(1) = D0r*1.0d0
             xDx(nbr+1) = 0.005d0
             do n = 2, nbr
-                xDx(n) = DEXP(REAL(n-1,KIND=R8SIZE)/REAL(nbr,KIND=R8SIZE) &
+                xDx(n) = DEXP(REAL(n-1,KIND=dp)/REAL(nbr,KIND=dp) &
                     *DLOG(xDx(nbr+1)/xDx(1)) +DLOG(xDx(1)))
             enddo
             do n = 1, nbr
@@ -704,7 +705,7 @@ CONTAINS
             xDx(1) = D0s*1.0d0
             xDx(nbs+1) = 0.02d0
             do n = 2, nbs
-                xDx(n) = DEXP(REAL(n-1,KIND=R8SIZE)/REAL(nbs,KIND=R8SIZE) &
+                xDx(n) = DEXP(REAL(n-1,KIND=dp)/REAL(nbs,KIND=dp) &
                     *DLOG(xDx(nbs+1)/xDx(1)) +DLOG(xDx(1)))
             enddo
             do n = 1, nbs
@@ -716,7 +717,7 @@ CONTAINS
             xDx(1) = D0g*1.0d0
             xDx(nbg+1) = 0.05d0
             do n = 2, nbg
-                xDx(n) = DEXP(REAL(n-1,KIND=R8SIZE)/REAL(nbg,KIND=R8SIZE) &
+                xDx(n) = DEXP(REAL(n-1,KIND=dp)/REAL(nbg,KIND=dp) &
                     *DLOG(xDx(nbg+1)/xDx(1)) +DLOG(xDx(1)))
             enddo
             do n = 1, nbg
@@ -728,7 +729,7 @@ CONTAINS
             xDx(1) = 1.0d0
             xDx(nbc+1) = 3000.0d0
             do n = 2, nbc
-                xDx(n) = DEXP(REAL(n-1,KIND=R8SIZE)/REAL(nbc,KIND=R8SIZE)                          &
+                xDx(n) = DEXP(REAL(n-1,KIND=dp)/REAL(nbc,KIND=dp)                          &
                     *DLOG(xDx(nbc+1)/xDx(1)) +DLOG(xDx(1)))
             enddo
             do n = 1, nbc
@@ -3938,7 +3939,7 @@ CONTAINS
             k = mod( km , 45 ) + 1
             T_adjust = MAX(-3.0, MIN(3.0 - ALOG10(Nt_IN(m)), 3.0))
             !         print*, ' Freezing water for temp = ', -k
-            Texp = DEXP( REAL(k,KIND=R8SIZE) - T_adjust*1.0D0 ) - 1.0D0
+            Texp = DEXP( REAL(k,KIND=dp) - T_adjust*1.0D0 ) - 1.0D0
             do j = 1, ntb_r1
                 do i = 1, ntb_r
                     lam_exp = (N0r_exp(j)*am_r*crg(1)/r_r(i))**ore1
