@@ -50,7 +50,7 @@ contains
         kts, kte, dt, ii, jj)
 
 #if defined(CCPP) && defined (MPI)
-    use mpi
+        use mpi
 #endif
         implicit none
 
@@ -59,7 +59,7 @@ contains
         real(wp), dimension(kts:kte), intent(inout) :: &
             qv1d, qc1d, qi1d, qr1d, qs1d, qg1d, qb1d, &
             ni1d, nr1d, nc1d, ng1d, nwfa1d, nifa1d, t1d
-        real(wp), dimension(kts:kte), intent(in):: p1d, w1d, dzq
+        real(wp), dimension(kts:kte), intent(in) :: p1d, w1d, dzq
         real(wp), intent(inout) :: pptrain, pptsnow, pptgraul, pptice
         real(wp), intent(in) :: dt
 
