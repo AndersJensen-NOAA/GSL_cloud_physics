@@ -44,9 +44,8 @@ contains
         tprr_rcs1, tprv_rev1, &
         tten1, qvten1, qrten1, qsten1, &
         qgten1, qiten1, niten1, nrten1, ncten1, qcten1, &
-        pfil1, pfll1, &
+        pfil1, pfll1, lsml, &
 #endif
-
         kts, kte, dt, ii, jj)
 
 #if defined(CCPP) && defined (MPI)
@@ -128,6 +127,7 @@ contains
 
         real(dp), parameter :: zerod0 = 0.0d0
 #if defined (CCPP)
+        real(wp), dimension(kts:kte) :: pfll, pfil, pdummy
         ! real(wp) :: dtcfl, rainsfc, graulsfc, orhodt
         ! integer :: niter
         ! real(wp), dimension(kts:kte) :: rr_tmp, nr_tmp, rg_tmp

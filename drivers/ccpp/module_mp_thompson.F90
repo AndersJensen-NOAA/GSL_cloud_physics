@@ -1486,13 +1486,13 @@ module module_mp_thompson
 
 !> - Call mp_thompson()
                call mp_thompson(qv1d, qc1d, qi1d, qr1d, qs1d, qg1d, qb1d, ni1d,     &
-                           nr1d, nc1d, ng1d, nwfa1d, nifa1d, t1d, p1d, w1d, dz1d,  &
-                           lsml, pptrain, pptsnow, pptgraul, pptice, &
+                           nr1d, nc1d, ng1d, nwfa1d, nifa1d, t1d, p1d, w1d, dz1d,   &
+                           pptrain, pptsnow, pptgraul, pptice, &
 #if ( WRF_CHEM == 1 )
                      rainprod1d, evapprod1d, &
 #endif
                            rand1, rand2, rand3, &
-                           kts, kte, dt, i, j, ext_diag,                    & 
+                           ext_diag,                                        & 
                            sedi_semi, decfl,                                &
                            !vtsk1, txri1, txrc1,                            &
                            prw_vcdc1, prw_vcde1,                            &
@@ -1506,7 +1506,8 @@ module module_mp_thompson
                            tprr_rcs1, tprv_rev1,                            &
                            tten1, qvten1, qrten1, qsten1,                   &
                            qgten1, qiten1, niten1, nrten1, ncten1, qcten1,  &
-                           pfil1, pfll1)
+                           pfil1, pfll1, lsml,                              &
+                           kts, kte, dt, i, j)
 
                pcp_ra(i,j) = pcp_ra(i,j) + pptrain
                pcp_sn(i,j) = pcp_sn(i,j) + pptsnow
