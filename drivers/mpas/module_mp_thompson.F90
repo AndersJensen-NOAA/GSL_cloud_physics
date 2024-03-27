@@ -1,19 +1,17 @@
-
 !=================================================================================================================
 !
-MODULE module_mp_thompson
+module module_mp_thompson
 
     use mpas_kind_types, only: wp => RKIND, sp => R4KIND, dp => R8KIND
 
     use module_mp_thompson_params
     use module_mp_thompson_main
-    use mpas_atmphys_functions, only: gammp,wgamma,rslf,rsif
+    use mpas_atmphys_functions, only: gammp, wgamma, rslf, rsif
     use mpas_atmphys_utilities
     use mpas_io_units, only : mpas_new_unit, mpas_release_unit
     use mp_radar
 
-
-CONTAINS
+contains
 
 !=================================================================================================================
     subroutine thompson_init(l_mp_tables)
@@ -23,8 +21,8 @@ CONTAINS
 !input arguments:
         logical,intent(in) :: l_mp_tables
 
-        integer,parameter :: open_OK = 0
-        integer :: i,j,k,l,m,n
+        integer, parameter :: open_OK = 0
+        integer :: i, j, k, l, m, n
         integer :: istat
         logical :: micro_init
         integer :: mp_unit
@@ -35,61 +33,62 @@ CONTAINS
         !     is_hail_aware = .TRUE.
         !     dimNRHG = NRHG
         ! else
-        av_g(idx_bg1) = av_g_old
-        bv_g(idx_bg1) = bv_g_old
-        dimNRHG = NRHG1
+        ! av_g(idx_bg1) = av_g_old
+        ! bv_g(idx_bg1) = bv_g_old
+        ! dimNRHG = NRHG1
         ! endif
-        micro_init = .FALSE.
+
+        dimNRHG = NRHG
+        micro_init = .false.
 
 !=================================================================================================================
 
 !..Allocate space for lookup tables (J. Michalakes 2009Jun08).
 
-        if (.NOT. ALLOCATED(tcg_racg) ) then
-            ALLOCATE(tcg_racg(ntb_g1,ntb_g,dimNRHG,ntb_r1,ntb_r))
-            micro_init = .TRUE.
+        if (.not. allocated(tcg_racg) ) then
+            allocate(tcg_racg(ntb_g1,ntb_g,dimNRHG,ntb_r1,ntb_r))
+            micro_init = .true.
         endif
 
-        if (.NOT. ALLOCATED(tmr_racg)) ALLOCATE(tmr_racg(ntb_g1,ntb_g,dimNRHG,ntb_r1,ntb_r))
-        if (.NOT. ALLOCATED(tcr_gacr)) ALLOCATE(tcr_gacr(ntb_g1,ntb_g,dimNRHG,ntb_r1,ntb_r))
-        ! if (.NOT. ALLOCATED(tmg_gacr)) ALLOCATE(tmg_gacr(ntb_g1,ntb_g,dimNRHG,ntb_r1,ntb_r))
-        if (.NOT. ALLOCATED(tnr_racg)) ALLOCATE(tnr_racg(ntb_g1,ntb_g,dimNRHG,ntb_r1,ntb_r))
-        if (.NOT. ALLOCATED(tnr_gacr)) ALLOCATE(tnr_gacr(ntb_g1,ntb_g,dimNRHG,ntb_r1,ntb_r))
+        if (.not. allocated(tmr_racg)) allocate(tmr_racg(ntb_g1,ntb_g,dimNRHG,ntb_r1,ntb_r))
+        if (.not. allocated(tcr_gacr)) allocate(tcr_gacr(ntb_g1,ntb_g,dimNRHG,ntb_r1,ntb_r))
+        ! if (.not. allocated(tmg_gacr)) allocate(tmg_gacr(ntb_g1,ntb_g,dimNRHG,ntb_r1,ntb_r))
+        if (.not. allocated(tnr_racg)) allocate(tnr_racg(ntb_g1,ntb_g,dimNRHG,ntb_r1,ntb_r))
+        if (.not. allocated(tnr_gacr)) allocate(tnr_gacr(ntb_g1,ntb_g,dimNRHG,ntb_r1,ntb_r))
 
-        if (.NOT. ALLOCATED(tcs_racs1)) ALLOCATE(tcs_racs1(ntb_s,ntb_t,ntb_r1,ntb_r))
-        if (.NOT. ALLOCATED(tmr_racs1)) ALLOCATE(tmr_racs1(ntb_s,ntb_t,ntb_r1,ntb_r))
-        if (.NOT. ALLOCATED(tcs_racs2)) ALLOCATE(tcs_racs2(ntb_s,ntb_t,ntb_r1,ntb_r))
-        if (.NOT. ALLOCATED(tmr_racs2)) ALLOCATE(tmr_racs2(ntb_s,ntb_t,ntb_r1,ntb_r))
-        if (.NOT. ALLOCATED(tcr_sacr1)) ALLOCATE(tcr_sacr1(ntb_s,ntb_t,ntb_r1,ntb_r))
-        if (.NOT. ALLOCATED(tms_sacr1)) ALLOCATE(tms_sacr1(ntb_s,ntb_t,ntb_r1,ntb_r))
-        if (.NOT. ALLOCATED(tcr_sacr2)) ALLOCATE(tcr_sacr2(ntb_s,ntb_t,ntb_r1,ntb_r))
-        if (.NOT. ALLOCATED(tms_sacr2)) ALLOCATE(tms_sacr2(ntb_s,ntb_t,ntb_r1,ntb_r))
-        if (.NOT. ALLOCATED(tnr_racs1)) ALLOCATE(tnr_racs1(ntb_s,ntb_t,ntb_r1,ntb_r))
-        if (.NOT. ALLOCATED(tnr_racs2)) ALLOCATE(tnr_racs2(ntb_s,ntb_t,ntb_r1,ntb_r))
-        if (.NOT. ALLOCATED(tnr_sacr1)) ALLOCATE(tnr_sacr1(ntb_s,ntb_t,ntb_r1,ntb_r))
-        if (.NOT. ALLOCATED(tnr_sacr2)) ALLOCATE(tnr_sacr2(ntb_s,ntb_t,ntb_r1,ntb_r))
+        if (.not. allocated(tcs_racs1)) allocate(tcs_racs1(ntb_s,ntb_t,ntb_r1,ntb_r))
+        if (.not. allocated(tmr_racs1)) allocate(tmr_racs1(ntb_s,ntb_t,ntb_r1,ntb_r))
+        if (.not. allocated(tcs_racs2)) allocate(tcs_racs2(ntb_s,ntb_t,ntb_r1,ntb_r))
+        if (.not. allocated(tmr_racs2)) allocate(tmr_racs2(ntb_s,ntb_t,ntb_r1,ntb_r))
+        if (.not. allocated(tcr_sacr1)) allocate(tcr_sacr1(ntb_s,ntb_t,ntb_r1,ntb_r))
+        if (.not. allocated(tms_sacr1)) allocate(tms_sacr1(ntb_s,ntb_t,ntb_r1,ntb_r))
+        if (.not. allocated(tcr_sacr2)) allocate(tcr_sacr2(ntb_s,ntb_t,ntb_r1,ntb_r))
+        if (.not. allocated(tms_sacr2)) allocate(tms_sacr2(ntb_s,ntb_t,ntb_r1,ntb_r))
+        if (.not. allocated(tnr_racs1)) allocate(tnr_racs1(ntb_s,ntb_t,ntb_r1,ntb_r))
+        if (.not. allocated(tnr_racs2)) allocate(tnr_racs2(ntb_s,ntb_t,ntb_r1,ntb_r))
+        if (.not. allocated(tnr_sacr1)) allocate(tnr_sacr1(ntb_s,ntb_t,ntb_r1,ntb_r))
+        if (.not. allocated(tnr_sacr2)) allocate(tnr_sacr2(ntb_s,ntb_t,ntb_r1,ntb_r))
 
-        if (.NOT. ALLOCATED(tpi_qcfz)) ALLOCATE(tpi_qcfz(ntb_c,nbc,45,ntb_IN))
-        if (.NOT. ALLOCATED(tni_qcfz)) ALLOCATE(tni_qcfz(ntb_c,nbc,45,ntb_IN))
+        if (.not. allocated(tpi_qcfz)) allocate(tpi_qcfz(ntb_c,nbc,45,ntb_in))
+        if (.not. allocated(tni_qcfz)) allocate(tni_qcfz(ntb_c,nbc,45,ntb_in))
 
-        if (.NOT. ALLOCATED(tpi_qrfz)) ALLOCATE(tpi_qrfz(ntb_r,ntb_r1,45,ntb_IN))
-        if (.NOT. ALLOCATED(tpg_qrfz)) ALLOCATE(tpg_qrfz(ntb_r,ntb_r1,45,ntb_IN))
-        if (.NOT. ALLOCATED(tni_qrfz)) ALLOCATE(tni_qrfz(ntb_r,ntb_r1,45,ntb_IN))
-        if (.NOT. ALLOCATED(tnr_qrfz)) ALLOCATE(tnr_qrfz(ntb_r,ntb_r1,45,ntb_IN))
+        if (.not. allocated(tpi_qrfz)) allocate(tpi_qrfz(ntb_r,ntb_r1,45,ntb_in))
+        if (.not. allocated(tpg_qrfz)) allocate(tpg_qrfz(ntb_r,ntb_r1,45,ntb_in))
+        if (.not. allocated(tni_qrfz)) allocate(tni_qrfz(ntb_r,ntb_r1,45,ntb_in))
+        if (.not. allocated(tnr_qrfz)) allocate(tnr_qrfz(ntb_r,ntb_r1,45,ntb_in))
 
-        if (.NOT. ALLOCATED(tps_iaus)) ALLOCATE(tps_iaus(ntb_i,ntb_i1))
-        if (.NOT. ALLOCATED(tni_iaus)) ALLOCATE(tni_iaus(ntb_i,ntb_i1))
-        if (.NOT. ALLOCATED(tpi_ide)) ALLOCATE(tpi_ide(ntb_i,ntb_i1))
+        if (.not. allocated(tps_iaus)) allocate(tps_iaus(ntb_i,ntb_i1))
+        if (.not. allocated(tni_iaus)) allocate(tni_iaus(ntb_i,ntb_i1))
+        if (.not. allocated(tpi_ide)) allocate(tpi_ide(ntb_i,ntb_i1))
 
-        if (.NOT. ALLOCATED(t_Efrw)) ALLOCATE(t_Efrw(nbr,nbc))
-        if (.NOT. ALLOCATED(t_Efsw)) ALLOCATE(t_Efsw(nbs,nbc))
+        if (.not. allocated(t_efrw)) allocate(t_efrw(nbr,nbc))
+        if (.not. allocated(t_efsw)) allocate(t_efsw(nbs,nbc))
 
-        if (.NOT. ALLOCATED(tnr_rev)) ALLOCATE(tnr_rev(nbr, ntb_r1, ntb_r))
-        if (.NOT. ALLOCATED(tpc_wev)) ALLOCATE(tpc_wev(nbc,ntb_c,nbc))
-        if (.NOT. ALLOCATED(tnc_wev)) ALLOCATE(tnc_wev(nbc,ntb_c,nbc))
+        if (.not. allocated(tnr_rev)) allocate(tnr_rev(nbr, ntb_r1, ntb_r))
+        if (.not. allocated(tpc_wev)) allocate(tpc_wev(nbc,ntb_c,nbc))
+        if (.not. allocated(tnc_wev)) allocate(tnc_wev(nbc,ntb_c,nbc))
 
-        if (.NOT. ALLOCATED(tnccn_act))                                   &
-            ALLOCATE(tnccn_act(ntb_arc,ntb_arw,ntb_art,ntb_arr,ntb_ark))
+        if (.not. allocated(tnccn_act)) allocate(tnccn_act(ntb_arc,ntb_arw,ntb_art,ntb_arr,ntb_ark))
 
         if (micro_init) then
 
@@ -330,7 +329,7 @@ CONTAINS
             xDx(1) = 1.0d0
             xDx(nbc+1) = 3000.0d0
             do n = 2, nbc
-                xDx(n) = DEXP(REAL(n-1,KIND=dp)/REAL(nbc,KIND=dp)                          &
+                xDx(n) = DEXP(REAL(n-1,KIND=dp)/REAL(nbc,KIND=dp) &
                     *DLOG(xDx(nbc+1)/xDx(1)) +DLOG(xDx(1)))
             enddo
             do n = 1, nbc
@@ -473,6 +472,14 @@ CONTAINS
 #else
             mp_unit = 11
 #endif
+            open(unit=mp_unit,file='CCN_ACTIVATE.BIN',form='UNFORMATTED',status='OLD',action='READ', &
+            iostat = istat)
+            if(istat /= open_OK) &
+            call physics_error_fatal('subroutine thompson_init: ' // &
+            'failure opening CCN_ACTIVATE.Bin')
+            read(mp_unit) tnccn_act
+            close(unit=mp_unit)
+
             open(unit=mp_unit,file='MP_THOMPSON_QRacrQG_DATA.DBL',form='UNFORMATTED',status='OLD',action='READ', &
                 iostat = istat)
             if(istat /= open_OK) &
@@ -1021,8 +1028,6 @@ CONTAINS
 !+---+-----------------------------------------------------------------+
 
     subroutine qr_acr_qg(NRHGtable)
-
-        !!!!      USE module_timing
         implicit none
 
         INTEGER, INTENT(IN) ::NRHGtable
@@ -1041,16 +1046,13 @@ CONTAINS
         do n2 = 1, nbr
             !        vr(n2) = av_r*Dr(n2)**bv_r * DEXP(-fv_r*Dr(n2))
             vr(n2) = -0.1021 + 4.932E3*Dr(n2) - 0.9551E6*Dr(n2)*Dr(n2)     &
-                + 0.07934E9*Dr(n2)*Dr(n2)*Dr(n2)                          &
+                + 0.07934E9*Dr(n2)*Dr(n2)*Dr(n2)                           &
                 - 0.002362E12*Dr(n2)*Dr(n2)*Dr(n2)*Dr(n2)
         enddo
 
         do n3 = 1, NRHGtable
             do n = 1, nbg
-                ! idx_bg indexes module coefficients, not vg
-                !!         if (.not. is_hail_aware) idx_bg = idx_bg1
-                idx_bg = 6
-                !!         if (is_hail_aware) idx_bg = n3
+                idx_bg = n3
                 vg(n,n3) = av_g(idx_bg)*Dg(n)**bv_g(idx_bg)
             enddo
         enddo
@@ -1070,9 +1072,7 @@ CONTAINS
             enddo
 
             do n3 = 1, NRHGtable
-                idx_bg = 6
-                !!          if (.not. is_hail_aware) idx_bg = idx_bg1
-                !!          if (is_hail_aware) idx_bg = n3
+                idx_bg = n3
 
                 do j = 1, ntb_g
                     do i = 1, ntb_g1
@@ -1116,7 +1116,7 @@ CONTAINS
                         tcg_racg(i,j,n3,k,m) = t1
                         tmr_racg(i,j,n3,k,m) = DMIN1(z1, r_r(m)*1.0d0)
                         tcr_gacr(i,j,n3,k,m) = t2
-                        !tmg_gacr(i,j,n3,k,m) = DMIN1(z2, r_g(j)*1.0d0)
+                        ! tmg_gacr(i,j,n3,k,m) = DMIN1(z2, r_g(j)*1.0d0)
                         tnr_racg(i,j,n3,k,m) = y1
                         tnr_gacr(i,j,n3,k,m) = y2
                     enddo
@@ -1151,7 +1151,7 @@ CONTAINS
         do n2 = 1, nbr
 !        vr(n2) = av_r*Dr(n2)**bv_r * DEXP(-fv_r*Dr(n2))
             vr(n2) = -0.1021 + 4.932E3*Dr(n2) - 0.9551E6*Dr(n2)*Dr(n2)     &
-                + 0.07934E9*Dr(n2)*Dr(n2)*Dr(n2)                          &
+                + 0.07934E9*Dr(n2)*Dr(n2)*Dr(n2)                           &
                 - 0.002362E12*Dr(n2)*Dr(n2)*Dr(n2)*Dr(n2)
             D1(n2) = (vr(n2)/av_s)**(1./bv_s)
         enddo
