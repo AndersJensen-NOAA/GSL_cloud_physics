@@ -6,6 +6,7 @@ module module_mp_thompson
 
     use module_mp_thompson_params
     use module_mp_thompson_main
+    use module_mp_thompson_utils
     use mpas_atmphys_functions, only: gammp, wgamma, rslf, rsif
     use mpas_atmphys_utilities
     use mpas_io_units, only : mpas_new_unit, mpas_release_unit

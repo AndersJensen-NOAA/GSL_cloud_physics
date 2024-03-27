@@ -6,6 +6,8 @@ module module_mp_thompson_utils
     use mpas_kind_types, only: wp => RKIND, sp => R4KIND, dp => R8KIND
 #endif
 
+    use module_mp_thompson_params
+    
 contains
 !+---+-----------------------------------------------------------------+
 !..Compute _radiation_ effective radii of cloud water, ice, and snow.
@@ -428,4 +430,6 @@ contains
     !    &                / (ze_rain(k)+ze_snow(k)+ze_graupel(k))
     !     enddo
     
-        end subroutine calc_refl10cm
+          end subroutine calc_refl10cm
+          
+        end module module_mp_thompson_utils
