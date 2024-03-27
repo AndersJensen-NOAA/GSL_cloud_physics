@@ -795,7 +795,8 @@ contains
                 else
                     do k = kts, kte
                         rho(k) = 0.622*p1d(k)/(R*t1d(k)*(qv1d(k)+0.622))
-                        nc1d(k) = Nt_c/rho(k)
+!AAJ TEST                        nc1d(k) = Nt_c/rho(k)
+                        nc1d(k) = 100.e6/rho(k)
                         nwfa1d(k) = 11.1E6/rho(k)
                         nifa1d(k) = naIN1*0.01/rho(k)
                     enddo
@@ -877,6 +878,7 @@ contains
                 endif
 
                 do k = kts, kte
+                    nc(i,k,j) = nc1d(k) !AAJ testing nc output
                     qv(i,k,j) = qv1d(k)
                     qc(i,k,j) = qc1d(k)
                     qi(i,k,j) = qi1d(k)
