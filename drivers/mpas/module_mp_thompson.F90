@@ -771,6 +771,7 @@ contains
                 Nt_c = ntc(i,j)
                 mu_c = muc(i,j)
 #endif
+                
                 do k = kts, kte
                     t1d(k) = th(i,k,j)*pii(i,k,j)
                     p1d(k) = p(i,k,j)
@@ -784,24 +785,47 @@ contains
                     qg1d(k) = qg(i,k,j)
                     ni1d(k) = ni(i,k,j)
                     nr1d(k) = nr(i,k,j)
-                enddo
-                if (is_aerosol_aware) then
-                    do k = kts, kte
-                        nc1d(k) = nc(i,k,j)
-                        nwfa1d(k) = nwfa(i,k,j)
-                        nifa1d(k) = nifa(i,k,j)
-                    enddo
-                    nwfa1 = nwfa2d(i,j)
-                else
-                    do k = kts, kte
-                        rho(k) = 0.622*p1d(k)/(R*t1d(k)*(qv1d(k)+0.622))
-!AAJ TEST                        nc1d(k) = Nt_c/rho(k)
-                        nc1d(k) = 100.e6/rho(k)
-                        nwfa1d(k) = 11.1E6/rho(k)
-                        nifa1d(k) = naIN1*0.01/rho(k)
-                    enddo
-                    nwfa1 = 11.1E6
-                endif
+
+                    rho(k) = 0.622*p1d(k)/(R*t1d(k)*(qv1d(k)+0.622))
+                    if (present(nc)) then
+                       nc1d(k) = nc(i,k,j)
+                       if ((qc1d(k) > 1.e-12) .and. (nc1d(k) < 0.01e6)) then
+                          nc1d(k) = Nt_c / rho(k)
+                       endif
+                    else
+                       nc1d(k) = Nt_c / rho(k)
+                    endif
+
+                    if (present(nwfa)) then
+                       nwfa1d(k) = nwfa(i,k,j)
+                    else
+                       nwfa1d(k) = 11.1e6 / rho(k)
+                    endif
+
+                    if (present(nifa)) then
+                       nifa1d(k) = nifa(i,k,j)
+                    else
+                       nifa1d(k) = naIN1*0.01 / rho(k)
+                    endif
+                 enddo
+                 
+                ! AAJ Removing logicals
+                ! if (is_aerosol_aware) then
+                !     do k = kts, kte
+                !         nc1d(k) = nc(i,k,j)
+                !         nwfa1d(k) = nwfa(i,k,j)
+                !         nifa1d(k) = nifa(i,k,j)
+                !     enddo
+                !     nwfa1 = nwfa2d(i,j)
+                ! else
+                !     do k = kts, kte
+                !         rho(k) = 0.622*p1d(k)/(R*t1d(k)*(qv1d(k)+0.622))
+                !         nc1d(k) = Nt_c/rho(k)
+                !         nwfa1d(k) = 11.1E6/rho(k)
+                !         nifa1d(k) = naIN1*0.01/rho(k)
+                !     enddo
+                !     nwfa1 = 11.1E6
+                ! endif
 
 !..If not the variable-density graupel-hail hybrid, then set the vol mixing
 !.. ratio to mass mixing ratio divided by constant density (500kg/m3) value.
@@ -860,16 +884,17 @@ contains
 !..Reset lowest model level to initial state aerosols (fake sfc source).
 !.. Changed 13 May 2013 to fake emissions in which nwfa2d is aerosol
 !.. number tendency (number per kg per second).
-                if (is_aerosol_aware) then
-!-GT        nwfa1d(kts) = nwfa1
-                    nwfa1d(kts) = nwfa1d(kts) + nwfa2d(i,j)*dt_in
-                    nifa1d(kts) = nifa1d(kts) + nifa2d(i,j)*dt_in
-                    do k = kts, kte
-                        nc(i,k,j) = nc1d(k)
-                        nwfa(i,k,j) = nwfa1d(k)
-                        nifa(i,k,j) = nifa1d(k)
-                    enddo
-                endif
+! AAJ removing flags
+!                 if (is_aerosol_aware) then
+! !-GT        nwfa1d(kts) = nwfa1
+!                     nwfa1d(kts) = nwfa1d(kts) + nwfa2d(i,j)*dt_in
+!                     nifa1d(kts) = nifa1d(kts) + nifa2d(i,j)*dt_in
+!                     do k = kts, kte
+!                         nc(i,k,j) = nc1d(k)
+!                         nwfa(i,k,j) = nwfa1d(k)
+!                         nifa(i,k,j) = nifa1d(k)
+!                     enddo
+!                 endif
                 if (is_hail_aware) then
                     do k = kts, kte
                         ng(i,k,j) = ng1d(k)
@@ -878,7 +903,10 @@ contains
                 endif
 
                 do k = kts, kte
-                    nc(i,k,j) = nc1d(k) !AAJ testing nc output
+                   if (present(nc)) nc(i,k,j) = nc1d(k)
+                   if (present(nwfa)) nwfa(i,k,j) = nwfa1d(k)
+                   if (present(nifa)) nifa(i,k,j) = nifa1d(k)
+!!!!!                    nc(i,k,j) = nc1d(k) !AAJ testing nc output
                     qv(i,k,j) = qv1d(k)
                     qc(i,k,j) = qc1d(k)
                     qi(i,k,j) = qi1d(k)

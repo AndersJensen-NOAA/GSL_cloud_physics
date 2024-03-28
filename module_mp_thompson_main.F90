@@ -439,8 +439,7 @@ contains
                 endif
                 nc(k) = min(real(nt_c_max, kind=dp), ccg(1,nu_c)*ocg2(nu_c)*rc(k) / am_r*lamc**bm_r)
                 ! CCPP version has different values for land/ocean
-! AAJ TESTING                if (.not. is_aerosol_aware) nc(k) = Nt_c
-                if (.not. is_aerosol_aware) nc(k) = 100.e6
+! AAJ                if (.not. is_aerosol_aware) nc(k) = Nt_c
             else
                 qc1d(k) = 0.0
                 nc1d(k) = 0.0
@@ -1732,8 +1731,7 @@ contains
             if ((qc1d(k) + qcten(k)*dt) .gt. r1) then
                 rc(k) = (qc1d(k) + qcten(k)*dt)*rho(k)
                 nc(k) = max(2., min((nc1d(k)+ncten(k)*dt)*rho(k), nt_c_max))
-!AAJ TESTING                if (.not. is_aerosol_aware) nc(k) = nt_c
-                if (.not. is_aerosol_aware) nc(k) = 100.e6
+!AAJ                if (.not. is_aerosol_aware) nc(k) = nt_c
                 L_qc(k) = .true.
             else
                 rc(k) = R1
@@ -1999,8 +1997,7 @@ contains
                 rc(k) = max(r1, (qc1d(k) + dt*qcten(k))*rho(k))
                 if (rc(k).eq.r1) l_qc(k) = .false.
                 nc(k) = max(2., min((nc1d(k)+ncten(k)*dt)*rho(k), nt_c_max))
-!AAJ                if (.NOT. is_aerosol_aware) nc(k) = Nt_c
-                if (.NOT. is_aerosol_aware) nc(k) = 100.e6
+! AAJ                if (.NOT. is_aerosol_aware) nc(k) = Nt_c
                 qv(k) = max(min_qv, qv1d(k) + DT*qvten(k))
                 temp(k) = t1d(k) + DT*tten(k)
                 rho(k) = RoverRv*pres(k)/(R*temp(k)*(qv(k)+RoverRv))
