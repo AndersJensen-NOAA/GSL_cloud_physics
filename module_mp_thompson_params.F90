@@ -1,9 +1,15 @@
 module module_mp_thompson_params
 
-#if defined(CCPP)
-  use machine, only: wp => kind_phys, sp => kind_sngl_prec, dp => kind_dbl_prec
-#elif defined(mpas)
-  use mpas_kind_types, only: wp => RKIND, sp => R4KIND, dp => R8KIND
+#if defined(mpas)
+    use mpas_kind_types, only: wp => RKIND, sp => R4KIND, dp => R8KIND
+#else
+#ifndef CCPP
+#define CCPP
+#endif
+#endif
+
+#ifdef(CCPP)
+    use machine, only: wp => kind_phys, sp => kind_sngl_prec, dp => kind_dbl_prec
 #endif
 
     implicit none

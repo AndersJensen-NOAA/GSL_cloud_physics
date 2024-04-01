@@ -6,6 +6,7 @@
 module module_mp_thompson
 
    use module_mp_thompson_params
+   use module_mp_thompson_utils
    use module_mp_thompson_main
    use machine, only: wp => kind_phys, sp => kind_sngl_prec, dp => kind_dbl_prec
    use module_mp_radar
@@ -1068,9 +1069,6 @@ module module_mp_thompson
                call mp_thompson(qv1d, qc1d, qi1d, qr1d, qs1d, qg1d, qb1d, ni1d,     &
                            nr1d, nc1d, ng1d, nwfa1d, nifa1d, t1d, p1d, w1d, dz1d,   &
                            pptrain, pptsnow, pptgraul, pptice, &
-#if ( WRF_CHEM == 1 )
-                     rainprod1d, evapprod1d, &
-#endif
                            rand1, rand2, rand3, &
                            ext_diag,                                        & 
                            sedi_semi, decfl,                                &
@@ -1354,8 +1352,10 @@ module module_mp_thompson
          !> - Call calc_effectrad()
 !                     call calc_effectRad (t1d, p1d, qv1d, qc1d, nc1d, qi1d, ni1d, qs1d,  &
 !                          re_qc1d, re_qi1d, re_qs1d, lsml, kts, kte)
-                     call calc_effectRad (t1d, p1d, qv1d, qc1d, nc1d, qi1d, ni1d, qs1d,  &
-                                          re_qc1d, re_qi1d, re_qs1d, kts, kte)
+
+                     call calc_effectRad (t1d=t1d, p1d=p1d, qv1d=qv1d, qc1d=qc1d, nc1d=nc1d, &
+                          qi1d=qi1d, ni1d=ni1d, qs1d=qs1d,  &
+                          re_qc1d=re_qc1d, re_qi1d=re_qi1d, re_qs1d=re_qs1d, lsm=lsml, kts=kts, kte=kte)
                      do k = kts, kte
                         re_cloud(i,k,j) = max(re_qc_min, min(re_qc1d(k), re_qc_max))
                         re_ice(i,k,j)   = max(re_qi_min, min(re_qi1d(k), re_qi_max))

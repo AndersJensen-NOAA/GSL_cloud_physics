@@ -1,9 +1,15 @@
 module module_mp_thompson_utils
 
-#if defined(CCPP)
-    use machine, only: wp => kind_phys, sp => kind_sngl_prec, dp => kind_dbl_prec
-#elif defined(mpas)
+#if defined(mpas)
     use mpas_kind_types, only: wp => RKIND, sp => R4KIND, dp => R8KIND
+#else
+#ifndef CCPP
+#define CCPP
+#endif
+#endif
+
+#ifdef(CCPP)
+    use machine, only: wp => kind_phys, sp => kind_sngl_prec, dp => kind_dbl_prec
 #endif
 
     use module_mp_thompson_params
@@ -17,14 +23,14 @@ contains
 !.. radiation, compute from first portion of complicated Field number
 !.. distribution, not the second part, which is the larger sizes.
 !+---+-----------------------------------------------------------------+
-
     subroutine calc_effectRad (t1d, p1d, qv1d, qc1d, nc1d, qi1d, ni1d, qs1d,   &
-        &                re_qc1d, re_qi1d, re_qs1d, kts, kte)
+        &                re_qc1d, re_qi1d, re_qs1d, lsm, kts, kte)
     
             IMPLICIT NONE
     
     !..Sub arguments
             INTEGER, INTENT(IN):: kts, kte
+            INTEGER, OPTIONAL, INTENT(IN):: lsm
             REAL, DIMENSION(kts:kte), INTENT(IN)::                            &
             &                    t1d, p1d, qv1d, qc1d, nc1d, qi1d, ni1d, qs1d
             REAL, DIMENSION(kts:kte), INTENT(INOUT):: re_qc1d, re_qi1d, re_qs1d
