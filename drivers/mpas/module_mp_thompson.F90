@@ -787,15 +787,6 @@ contains
                     nr1d(k) = nr(i,k,j)
 
                     rho(k) = 0.622*p1d(k)/(R*t1d(k)*(qv1d(k)+0.622))
-                    if (present(nc)) then
-                       nc1d(k) = nc(i,k,j)
-                       if ((qc1d(k) > 1.e-12) .and. (nc1d(k) < 0.01e6)) then
-                          nc1d(k) = Nt_c / rho(k)
-                       endif
-                    else
-                       nc1d(k) = Nt_c / rho(k)
-                    endif
-
                     if (present(nwfa)) then
                        nwfa1d(k) = nwfa(i,k,j)
                     else
@@ -806,6 +797,15 @@ contains
                        nifa1d(k) = nifa(i,k,j)
                     else
                        nifa1d(k) = naIN1*0.01 / rho(k)
+                    endif
+
+                    if (present(nc)) then
+                       nc1d(k) = nc(i,k,j)
+                       if ((qc1d(k) > 1.e-12) .and. (nc1d(k) < 0.01e6)) then
+                          nc1d(k) = Nt_c / rho(k)
+                       endif
+                    else
+                       nc1d(k) = Nt_c / rho(k)
                     endif
                  enddo
                  

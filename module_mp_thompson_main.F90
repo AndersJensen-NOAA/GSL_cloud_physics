@@ -419,7 +419,7 @@ contains
             ! CCPP version has rho(k) multiplier for min and max
             nwfa(k) = max(11.1e6, min(9999.e6, nwfa1d(k)*rho(k)))
             nifa(k) = max(nain1*0.01, min(9999.e6, nifa1d(k)*rho(k)))
-            
+
             ! From CCPP version
             mvd_r(k) = D0r
             mvd_c(k) = D0c
@@ -438,7 +438,7 @@ contains
                     lamc = cce(2,nu_c)/(D0r*2.)
                 endif
                 nc(k) = min(real(nt_c_max, kind=dp), ccg(1,nu_c)*ocg2(nu_c)*rc(k) / am_r*lamc**bm_r)
-                ! CCPP version has different values for land/ocean
+                ! CCPP version has different values of Nt_c for land/ocean
 ! AAJ                if (.not. is_aerosol_aware) nc(k) = Nt_c
             else
                 qc1d(k) = 0.0
@@ -1113,7 +1113,7 @@ contains
 !.. Implemented by T. Eidhammer and G. Thompson 2012Dec18
 !+---+-----------------------------------------------------------------+
 
-                    if (dustyIce .AND. is_aerosol_aware) then
+                    if (dustyIce) then
                         xni = iceDeMott(tempc,qvs(k),qvs(k),qvsi(k),rho(k),nifa(k))
                     else
                         xni = 1.0 *1000. ! Default is 1.0 per Liter
@@ -1159,7 +1159,8 @@ contains
 !.. we may need to relax the temperature and ssati constraints.
                     if ( (ssati(k).ge. demott_nuc_ssati) .or. (ssatw(k).gt. eps &
                         .and. temp(k).lt.253.15) ) then
-                        if (dustyIce .AND. is_aerosol_aware) then
+
+                        if (dustyIce) then
                             xnc = iceDeMott(tempc,qv(k),qvs(k),qvsi(k),rho(k),nifa(k))
                         else
                             xnc = min(250.e3, tno*exp(ato*(t_0-temp(k))))
@@ -1172,8 +1173,7 @@ contains
 
 !..Freezing of aqueous aerosols based on Koop et al (2001, Nature)
                     xni = ns(k)+ni(k) + (pni_rfz(k)+pni_wfz(k)+pni_inu(k))*dtsave
-                    if (is_aerosol_aware .AND. homogIce .AND. (xni.le.max_ni)     &
-                    .AND.(temp(k).lt.238).AND.(ssati(k).ge.0.4) ) then
+                    if (homogIce .AND. (xni.le.max_ni).AND.(temp(k).lt.238).AND.(ssati(k).ge.0.4) ) then
                         xnc = iceKoop(temp(k),qv(k),qvs(k),nwfa(k), dtsave)
                         pni_iha(k) = xnc*odts
                         pri_iha(k) = min(real(rate_max, kind=dp), xm0i*0.1*pni_iha(k))
@@ -1498,7 +1498,7 @@ contains
             lfus2 = lsub - lvap(k)
 
 !..Aerosol number tendency
-            if (is_aerosol_aware) then
+! AAJ            if (is_aerosol_aware) then
                 nwfaten(k) = nwfaten(k) - (pna_rca(k) + pna_sca(k)          &
                     + pna_gca(k) + pni_iha(k)) * orho
                 nifaten(k) = nifaten(k) - (pnd_rcd(k) + pnd_scd(k)          &
@@ -1508,7 +1508,7 @@ contains
                 else
                     nifaten(k) = 0.
                 endif
-            endif
+! AAJ            endif
 
 !..Water vapor tendency
             qvten(k) = qvten(k) + (-pri_inu(k) - pri_iha(k) - pri_ide(k)   &
@@ -1927,15 +1927,15 @@ contains
                     prw_vcd(k) = clap*odt
 !+---+-----------------------------------------------------------------+ !  DROPLET NUCLEATION
                     if (clap .gt. eps) then
-                        if (is_aerosol_aware) then
-                            xnc = max(2., activ_ncloud(temp(k), w1d(k), nwfa(k)))
-                        else
-                            xnc = Nt_c
-                        endif
+! AAJ                  if (is_aerosol_aware) then
+                        xnc = max(2., activ_ncloud(temp(k), w1d(k), nwfa(k)))
+! AAJ                  else
+! AAJ                    xnc = Nt_c
+! AAJ                  endif
                         pnc_wcd(k) = 0.5*(xnc-nc(k) + abs(xnc-nc(k)))*odts*orho
 
 !+---+-----------------------------------------------------------------+ !  EVAPORATION
-                    elseif (clap .lt. -eps .AND. ssatw(k).lt.-1.E-6 .AND. is_aerosol_aware) then
+                    elseif (clap .lt. -eps .AND. ssatw(k).lt.-1.E-6) then
                         tempc = temp(k) - 273.15
                         otemp = 1./temp(k)
                         rvs = rho(k)*qvs(k)
@@ -1992,7 +1992,9 @@ contains
                 qvten(k) = qvten(k) - prw_vcd(k)
                 qcten(k) = qcten(k) + prw_vcd(k)
                 ncten(k) = ncten(k) + pnc_wcd(k)
+                ! Be careful here: initial cloud evaporation can increase aerosols
                 nwfaten(k) = nwfaten(k) - pnc_wcd(k)
+
                 tten(k) = tten(k) + lvap(k)*ocp(k)*prw_vcd(k)*(1-IFDRY)
                 rc(k) = max(r1, (qc1d(k) + dt*qcten(k))*rho(k))
                 if (rc(k).eq.r1) l_qc(k) = .false.
@@ -2514,18 +2516,10 @@ contains
             qv1d(k) = max(min_qv, qv1d(k) + qvten(k)*dt)
             qc1d(k) = qc1d(k) + qcten(k)*dt
             nc1d(k) = max(2./rho(k), min(nc1d(k) + ncten(k)*dt, nt_c_max))
-            if (is_aerosol_aware) then
-                nwfa1d(k) = max(11.1e6, min(9999.e6,                           &
-                    (nwfa1d(k)+nwfaten(k)*dt)))
-                nifa1d(k) = max(nain1*0.01, min(9999.e6,                       &
-                    (nifa1d(k)+nifaten(k)*dt)))
-            else
-                nwfa1d(k) = max(11.1e6, min(9999.e6,                           &
-                    (nwfa1d(k)+nwfaten(k)*dt)))
-                nifa1d(k) = max(nain1*0.01, min(9999.e6,                       &
-                    (nifa1d(k)+nifaten(k)*dt)))
-            endif
-
+            nwfa1d(k) = max(11.1e6, min(9999.e6,                           &
+                 (nwfa1d(k)+nwfaten(k)*dt)))
+            nifa1d(k) = max(nain1*0.01, min(9999.e6,                       &
+                 (nifa1d(k)+nifaten(k)*dt)))
             if (qc1d(k) .le. r1) then
                 qc1d(k) = 0.0
                 nc1d(k) = 0.0
