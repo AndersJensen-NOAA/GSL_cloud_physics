@@ -1,15 +1,15 @@
 !>\file module_mp_thompson.F90
-!! This file contains the entity of Thompson MP scheme.
+!! This file is the CCPP driver for Thompson microphysics
 
 !>\ingroup aathompson
 
+!=================================================================================================================
 module module_mp_thompson
 
    use module_mp_thompson_params
    use module_mp_thompson_utils
    use module_mp_thompson_main
    use machine, only: wp => kind_phys, sp => kind_sngl_prec, dp => kind_dbl_prec
-   use module_mp_radar
 
 #ifdef MPI
    use mpi
@@ -18,7 +18,7 @@ module module_mp_thompson
    contains
 !>\ingroup aathompson
 !! This subroutine calculates simplified cloud species equations and create
-!! lookup tables in Thomspson scheme.
+!! lookup tables in the Thompson scheme.
 !>\section gen_thompson_init thompson_init General Algorithm
 !> @{
       subroutine thompson_init(is_aerosol_aware_in,       &
@@ -33,32 +33,37 @@ module module_mp_thompson
          integer, intent(in) :: mpicomm, mpirank, mpiroot
          integer, intent(In) :: threads
          character(len=*), intent(inout) :: errmsg
-         integer,          intent(inout) :: errflg
+         integer, intent(inout) :: errflg
 
          integer :: i, j, k, l, m, n
          logical :: micro_init
          real(wp) :: stime, etime
-         logical, parameter :: precomputed_tables = .FALSE.
+         logical, parameter :: precomputed_tables = .false.
 
-! Set module variable is_aerosol_aware/merra2_aerosol_aware
-         is_aerosol_aware = is_aerosol_aware_in
-         merra2_aerosol_aware = merra2_aerosol_aware_in
-         if (is_aerosol_aware .and. merra2_aerosol_aware) then
-            errmsg = 'Logic error in thompson_init: only one of the two options can be true, ' // &
-                     'not both: is_aerosol_aware or merra2_aerosol_aware'
-            errflg = 1
-            return
-         end if
-         if (mpirank==mpiroot) then
-            if (is_aerosol_aware) then
-               write (*,'(a)') 'Using aerosol-aware version of Thompson microphysics'
-            else if(merra2_aerosol_aware) then
-               write (*,'(a)') 'Using merra2 aerosol-aware version of Thompson microphysics'
-            else
-               write (*,'(a)') 'Using non-aerosol-aware version of Thompson microphysics'
-            end if
-         end if
+! AAJ This is a redundant check
+! Check in mp_thompson.F90, not here
+! TODO REMOVE FROM mp_thompson.F90
+         
+! ! Set module variable is_aerosol_aware/merra2_aerosol_aware
+!          is_aerosol_aware = is_aerosol_aware_in
+!          merra2_aerosol_aware = merra2_aerosol_aware_in
+!          if (is_aerosol_aware .and. merra2_aerosol_aware) then
+!             errmsg = 'Logic error in thompson_init: only one of the two options can be true, ' // &
+!                      'not both: is_aerosol_aware or merra2_aerosol_aware'
+!             errflg = 1
+!             return
+!          end if
+!          if (mpirank==mpiroot) then
+!             if (is_aerosol_aware) then
+!                write (*,'(a)') 'Using aerosol-aware version of Thompson microphysics'
+!             else if(merra2_aerosol_aware) then
+!                write (*,'(a)') 'Using merra2 aerosol-aware version of Thompson microphysics'
+!             else
+!                write (*,'(a)') 'Using non-aerosol-aware version of Thompson microphysics'
+!             end if
+!          end if
 
+         ! Currently hard-coded for single-moment graupel
          av_g(idx_bg1) = av_g_old
          bv_g(idx_bg1) = bv_g_old
          dimNRHG = NRHG1
@@ -1324,19 +1329,20 @@ module module_mp_thompson
                            melti=.false.
                         endif
             !
-!                        if (present(vt_dbz_wt)) then
-!                           call calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d,   &
-!                                             t1d, p1d, dBZ, rand1, kts, kte, i, j, &
-!                                             melti, vt_dbz_wt(i,:,j),              &
-!                                             first_time_step)
-!                        else
-!AAJ                           call calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d,   &
-!AAJ                                             t1d, p1d, dBZ, rand1, kts, kte, i, j, &
-!AAJ                                             melti)
+                        if (present(vt_dbz_wt)) then
                            call calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d,   &
-                                             t1d, p1d, dBZ, kts, kte, i, j)
+                                             t1d, p1d, dBZ, rand1, kts, kte, i, j, &
+                                             melti, vt_dbz_wt(i,:,j),              &
+                                             first_time_step)
+                        else
+                           call calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d,   &
+                                             t1d, p1d, dBZ, rand1, kts, kte, i, j, &
+                                             melti)
+                           
+!                           call calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d,   &
+!                                             t1d, p1d, dBZ, kts, kte, i, j)
                                          
-!                        endif
+                        endif
                         do k = kts, kte
                            refl_10cm(i,k,j) = max(-35., dBZ(k))
                         enddo

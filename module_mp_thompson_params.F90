@@ -128,7 +128,9 @@ module module_mp_thompson_params
                  0.640961647/)
     real(wp), parameter :: a_coeff = 0.47244157
     real(wp), parameter :: b_coeff = 0.54698726
+#if defined(mpas)
     real(wp), parameter :: av_i = 1493.9
+#endif
     real(wp), parameter :: bv_i = 1.0
     real(wp), parameter :: av_c = 0.316946E8
     real(wp), parameter :: bv_c = 2.0

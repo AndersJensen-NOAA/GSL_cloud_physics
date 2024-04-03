@@ -198,7 +198,12 @@ contains
         ! AAJ ADDED
         real(wp), parameter :: min_qv = 1.e-10
         real(dp), parameter :: max_ni = 4999.e3
+#if defined (CCPP)
+        real(wp) :: av_i
+        real(wp), parameter :: demott_nuc_ssati = 0.15 ! 0.15 for CCPP
+#else
         real(wp), parameter :: demott_nuc_ssati = 0.25 ! 0.15 for CCPP
+#endif
 !+---+
 
 
@@ -217,10 +222,10 @@ contains
         odts = 1./dtsave
         iexfrq = 1
         
-! #if defined(CCPP)
-! ! Transition value of coefficient matching at crossover from cloud ice to snow
-!         av_i = av_s * D0s ** (bv_s - bv_i)
-! #endif
+#if defined(CCPP)
+! Transition value of coefficient matching at crossover from cloud ice to snow
+        av_i = av_s * D0s ** (bv_s - bv_i)
+#endif
 
 !+---+-----------------------------------------------------------------+
 ! Source/sink terms.  First 2 chars: "pr" represents source/sink of
@@ -2749,14 +2754,15 @@ contains
 !.. updraft velocity could easily be negative, we could use the temp
 !.. and its tendency to diagnose a pretend postive updraft velocity.
 !+---+-----------------------------------------------------------------+
-    real function activ_ncloud(Tt, Ww, NCCN)
+    real function activ_ncloud(Tt, Ww, NCCN, lsm_in)
 
         implicit none
         REAL, INTENT(IN):: Tt, Ww, NCCN
+        REAL, optional, intent(in) :: lsm_in
         REAL:: n_local, w_local
         INTEGER:: i, j, k, l, m, n
         REAL:: A, B, C, D, t, u, x1, x2, y1, y2, nx, wy, fraction
-
+        REAL:: lower_lim_nuc_frac
 
 !     ta_Na = (/10.0, 31.6, 100.0, 316.0, 1000.0, 3160.0, 10000.0/)  ntb_arc
 !     ta_Ww = (/0.01, 0.0316, 0.1, 0.316, 1.0, 3.16, 10.0, 31.6, 100.0/)  ntb_arw
@@ -2803,6 +2809,18 @@ contains
         l = 3
         m = 2
 
+        lower_lim_nuc_frac = 0.
+        
+        if(present(lsm_in)) then
+            if (lsm_in .eq. 1) then        ! land
+                lower_lim_nuc_frac = 0.
+            else if (lsm_in .eq. 0) then   ! water
+                lower_lim_nuc_frac = 0.15
+            else
+                lower_lim_nuc_frac = 0.15  ! catch-all for anything else	
+            endif
+        endif   
+
         A = tnccn_act(i-1,j-1,k,l,m)
         B = tnccn_act(i,j-1,k,l,m)
         C = tnccn_act(i,j,k,l,m)
@@ -2817,6 +2835,7 @@ contains
 !     u = (w_local-ta_Ww(j-1))/(ta_Ww(j)-ta_Ww(j-1))
 
         fraction = (1.0-t)*(1.0-u)*A + t*(1.0-u)*B + t*u*C + (1.0-t)*u*D
+        fraction = max(fraction, lower_lim_nuc_frac)
 
 !     if (NCCN*fraction .gt. 0.75*Nt_c_max) then
 !        write(*,*) ' DEBUG-GT ', n_local, w_local, Tt, i, j, k
