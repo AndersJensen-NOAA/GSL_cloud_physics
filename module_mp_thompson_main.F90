@@ -11,7 +11,7 @@ module module_mp_thompson_main
 #endif
 #endif
 
-#ifdef(CCPP)
+#if defined(CCPP)
     use machine, only: wp => kind_phys, sp => kind_sngl_prec, dp => kind_dbl_prec
 #endif
 
@@ -54,7 +54,7 @@ contains
         kts, kte, dt, ii, jj)
 
 #if defined(CCPP) && defined (MPI)
-        use mpi
+        use mpi_f08
 #endif
         implicit none
 

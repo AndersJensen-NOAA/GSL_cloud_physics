@@ -12,7 +12,7 @@ module module_mp_thompson
    use machine, only: wp => kind_phys, sp => kind_sngl_prec, dp => kind_dbl_prec
 
 #ifdef MPI
-   use mpi
+   use mpi_f08
 #endif
 
    contains
@@ -30,7 +30,8 @@ module module_mp_thompson
 
          logical, intent(in) :: is_aerosol_aware_in
          logical, intent(in) :: merra2_aerosol_aware_in
-         integer, intent(in) :: mpicomm, mpirank, mpiroot
+         TYPE(MPI_Comm), INTENT(IN) :: mpicomm
+         integer, intent(in) :: mpirank, mpiroot
          integer, intent(In) :: threads
          character(len=*), intent(inout) :: errmsg
          integer, intent(inout) :: errflg
@@ -1330,12 +1331,12 @@ module module_mp_thompson
                         endif
             !
                         if (present(vt_dbz_wt)) then
-                           call calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d,   &
+                           call calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d, ng1d,  &
                                              t1d, p1d, dBZ, rand1, kts, kte, i, j, &
                                              melti, vt_dbz_wt(i,:,j),              &
                                              first_time_step)
                         else
-                           call calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d,   &
+                           call calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d, ng1d,  &
                                              t1d, p1d, dBZ, rand1, kts, kte, i, j, &
                                              melti)
                            
@@ -1361,7 +1362,9 @@ module module_mp_thompson
 
                      call calc_effectRad (t1d=t1d, p1d=p1d, qv1d=qv1d, qc1d=qc1d, nc1d=nc1d, &
                           qi1d=qi1d, ni1d=ni1d, qs1d=qs1d,  &
-                          re_qc1d=re_qc1d, re_qi1d=re_qi1d, re_qs1d=re_qs1d, lsm=lsml, kts=kts, kte=kte)
+                          re_qc1d=re_qc1d, re_qi1d=re_qi1d, re_qs1d=re_qs1d, &
+                          lsm=lsml, kts=kts, kte=kte)
+                          
                      do k = kts, kte
                         re_cloud(i,k,j) = max(re_qc_min, min(re_qc1d(k), re_qc_max))
                         re_ice(i,k,j)   = max(re_qi_min, min(re_qi1d(k), re_qi_max))

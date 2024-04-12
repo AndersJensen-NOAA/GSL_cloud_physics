@@ -8,7 +8,7 @@ module module_mp_thompson_utils
 #endif
 #endif
 
-#ifdef(CCPP)
+#if defined(CCPP)
     use machine, only: wp => kind_phys, sp => kind_sngl_prec, dp => kind_dbl_prec
 #endif
 
@@ -146,7 +146,7 @@ contains
 !! of frozen species remaining from what initially existed at the
 !! melting level interface.
 
-    subroutine calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d, &
+    subroutine calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d, ng1d, &
         t1d, p1d, dBZ, kts, kte, ii, jj, melti,       &
         vt_dBZ, first_time_step)
 
@@ -156,7 +156,7 @@ contains
         INTEGER, INTENT(IN):: kts, kte, ii, jj
 !   REAL, INTENT(IN):: rand1
         REAL, DIMENSION(kts:kte), INTENT(IN)::                            &
-            qv1d, qc1d, qr1d, nr1d, qs1d, qg1d, t1d, p1d
+            qv1d, qc1d, qr1d, nr1d, qs1d, qg1d, ng1d, t1d, p1d
         REAL, DIMENSION(kts:kte), INTENT(INOUT):: dBZ
         REAL, DIMENSION(kts:kte), OPTIONAL, INTENT(INOUT):: vt_dBZ
         LOGICAL, OPTIONAL, INTENT(IN) :: first_time_step
@@ -166,7 +166,7 @@ contains
         LOGICAL :: allow_wet_graupel
         LOGICAL :: allow_wet_snow
         REAL, DIMENSION(kts:kte):: temp, pres, qv, rho, rhof
-        REAL, DIMENSION(kts:kte):: rc, rr, nr, rs, rg
+        REAL, DIMENSION(kts:kte):: rc, rr, nr, rs, rg, ng, rb
 
         DOUBLE PRECISION, DIMENSION(kts:kte):: ilamr, ilamg, N0_r, N0_g
         REAL, DIMENSION(kts:kte):: mvd_r
@@ -241,9 +241,16 @@ contains
             endif
             if (qg1d(k) .gt. R2) then
                 rg(k) = qg1d(k)*rho(k)
+                ng(k) = MAX(R2, ng1d(k)*rho(k))
+                rb(k) = MAX(qg1d(k)/rho_g(NRHG), qb1d(k))
+                rb(k) = MIN(qg1d(k)/rho_g(1), rb(k))
+                idx_bg(k) = MAX(1,MIN(NINT(qg1d(k)/rb(k) *0.01)+1,NRHG))
+                if (.not. is_hail_aware) idx_bg(k) = idx_bg1
                 L_qg(k) = .true.
             else
                 rg(k) = R1
+                ng(k) = R2
+                idx_bg(k) = idx_bg1
                 L_qg(k) = .false.
             endif
         enddo
@@ -313,19 +320,15 @@ contains
 !+---+-----------------------------------------------------------------+
 !..Calculate y-intercept, slope values for graupel.
 !+---+-----------------------------------------------------------------+
-
         if (ANY(L_qg .eqv. .true.)) then
             do k = kte, kts, -1
-                ygra1 = alog10(max(1.e-9, rg(k)))
-                zans1 = 3.0 + 2./7.*(ygra1+8.) + rand1
-                N0_exp = 10.**(zans1)
-                N0_exp = max(dble(gonv_min), min(N0_exp, dble(gonv_max)))
-                lam_exp = (N0_exp*am_g*cgg(1)/rg(k))**oge1
-                lamg = lam_exp * (cgg(3)*ogg2*ogg1)**obmg
-                ilamg(k) = 1./lamg
-                N0_g(k) = N0_exp/(cgg(2)*lam_exp) * lamg**cge(2)
+               lamg = (am_g(idx_bg(k))*cgg(3,1)*ogg2*ng(k)/rg(k))**obmg
+               ilamg(k) = 1./lamg
+               N0_g(k) = ng(k)*ogg2*lamg**cge(2,1)
             enddo
-            ! call graupel_psd_parameters(kts, kte, rand1, rg, ilamg, N0_g)
+        else
+            ilamg(:) = 0.
+            N0_g(:) = 0.
         endif
 
 !+---+-----------------------------------------------------------------+
@@ -355,8 +358,8 @@ contains
             if (L_qs(k)) ze_snow(k) = (0.176/0.93) * (6.0/PI)*(6.0/PI)     &
             &                           * (am_s/900.0)*(am_s/900.0)*smoz(k)
             if (L_qg(k)) ze_graupel(k) = (0.176/0.93) * (6.0/PI)*(6.0/PI)  &
-            &                              * (am_g/900.0)*(am_g/900.0)         &
-            &                              * N0_g(k)*cgg(4)*ilamg(k)**cge(4)
+            &               * (am_g(idx_bg(k))/900.0)*(am_g(idx_bg(k))/900.0)  &
+            &               * N0_g(k)*cgg(4,1)*ilamg(k)**cge(4,1)
         enddo
 
 !+---+-----------------------------------------------------------------+
@@ -402,7 +405,7 @@ contains
                     lamg = 1./ilamg(k)
                     do n = 1, nrbins
                         x = am_g * xxDg(n)**bm_g
-                        call rayleigh_soak_wetgraupel (x, DBLE(ocmg), DBLE(obmg), &
+                        call rayleigh_soak_wetgraupel (x, DBLE(ocmg(idx_bg(k))), DBLE(obmg), &
                         &              fmelt_g, melt_outside_g, m_w_0, m_i_0, lamda_radar, &
                         &              CBACK, mixingrulestring_g, matrixstring_g,          &
                         &              inclusionstring_g, hoststring_g,                    &
@@ -454,11 +457,19 @@ contains
 
                 if (rg(k).gt.R2) then
                     lamg = 1./ilamg(k)
-                    vtg_dbz_wt = rhof(k)*av_g*cgg(5)*lamg**(-cge(5))               &
-                        / (cgg(4)*lamg**(-cge(4)))
+                    vtg_dbz_wt = rhof(k)*av_g(idx_bg(k))*cgg(5,idx_bg(k))*lamg**(-cge(5,idx_bg(k)))               &
+            &               / (cgg(4,1)*lamg**(-cge(4,1)))
                 else
                     vtg_dbz_wt = 1.E-3
                 endif
+
+                ! if (rg(k).gt.R2) then
+                !     lamg = 1./ilamg(k)
+                !     vtg_dbz_wt = rhof(k)*av_g*cgg(5)*lamg**(-cge(5))               &
+                !         / (cgg(4)*lamg**(-cge(4)))
+                ! else
+                !     vtg_dbz_wt = 1.E-3
+                ! endif
 
                 vt_dBZ(k) = (vts_dbz_wt*ze_snow(k) + vtr_dbz_wt*ze_rain(k)      &
                     + vtg_dbz_wt*ze_graupel(k))                        &
