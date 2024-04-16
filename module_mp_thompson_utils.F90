@@ -56,8 +56,8 @@ contains
 
             if (.NOT. (is_aerosol_aware .or. merra2_aerosol_aware)) then
                 nc(k) = Nt_c_l
-                if(present(lsml)) then
-                    if( lsml == 1) then
+                if(present(lsm)) then
+                    if( lsm == 1) then
                         nc(k) = Nt_c_l
                     else
                         nc(k) = Nt_c_o
@@ -146,17 +146,17 @@ contains
 !! of frozen species remaining from what initially existed at the
 !! melting level interface.
 
-    subroutine calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d, ng1d, &
-        t1d, p1d, dBZ, kts, kte, ii, jj, melti,       &
+    subroutine calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d, ng1d, qb1d, &
+        t1d, p1d, dBZ, kts, kte, ii, jj, rand1, melti, &
         vt_dBZ, first_time_step)
 
         IMPLICIT NONE
 
 !..Sub arguments
         INTEGER, INTENT(IN):: kts, kte, ii, jj
-!   REAL, INTENT(IN):: rand1
+        REAL, OPTIONAL, INTENT(IN):: rand1
         REAL, DIMENSION(kts:kte), INTENT(IN)::                            &
-            qv1d, qc1d, qr1d, nr1d, qs1d, qg1d, ng1d, t1d, p1d
+            qv1d, qc1d, qr1d, nr1d, qs1d, qg1d, ng1d, qb1d, t1d, p1d
         REAL, DIMENSION(kts:kte), INTENT(INOUT):: dBZ
         REAL, DIMENSION(kts:kte), OPTIONAL, INTENT(INOUT):: vt_dBZ
         LOGICAL, OPTIONAL, INTENT(IN) :: first_time_step
@@ -167,6 +167,7 @@ contains
         LOGICAL :: allow_wet_snow
         REAL, DIMENSION(kts:kte):: temp, pres, qv, rho, rhof
         REAL, DIMENSION(kts:kte):: rc, rr, nr, rs, rg, ng, rb
+        INTEGER, DIMENSION(kts:kte):: idx_bg
 
         DOUBLE PRECISION, DIMENSION(kts:kte):: ilamr, ilamg, N0_r, N0_g
         REAL, DIMENSION(kts:kte):: mvd_r
@@ -404,7 +405,7 @@ contains
                     eta = 0.d0
                     lamg = 1./ilamg(k)
                     do n = 1, nrbins
-                        x = am_g * xxDg(n)**bm_g
+                        x = am_g(idx_bg(k)) * xxDg(n)**bm_g
                         call rayleigh_soak_wetgraupel (x, DBLE(ocmg(idx_bg(k))), DBLE(obmg), &
                         &              fmelt_g, melt_outside_g, m_w_0, m_i_0, lamda_radar, &
                         &              CBACK, mixingrulestring_g, matrixstring_g,          &

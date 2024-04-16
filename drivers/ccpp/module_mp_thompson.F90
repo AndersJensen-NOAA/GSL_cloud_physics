@@ -46,8 +46,8 @@ module module_mp_thompson
 ! TODO REMOVE FROM mp_thompson.F90
          
 ! ! Set module variable is_aerosol_aware/merra2_aerosol_aware
-!          is_aerosol_aware = is_aerosol_aware_in
-!          merra2_aerosol_aware = merra2_aerosol_aware_in
+          is_aerosol_aware = is_aerosol_aware_in
+          merra2_aerosol_aware = merra2_aerosol_aware_in
 !          if (is_aerosol_aware .and. merra2_aerosol_aware) then
 !             errmsg = 'Logic error in thompson_init: only one of the two options can be true, ' // &
 !                      'not both: is_aerosol_aware or merra2_aerosol_aware'
@@ -1331,14 +1331,14 @@ module module_mp_thompson
                         endif
             !
                         if (present(vt_dbz_wt)) then
-                           call calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d, ng1d,  &
-                                             t1d, p1d, dBZ, rand1, kts, kte, i, j, &
-                                             melti, vt_dbz_wt(i,:,j),              &
+                           call calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d, ng1d, qb1d, &
+                                             t1d, p1d, dBZ, kts, kte, i, j, &
+                                             rand1, melti, vt_dbz_wt(i,:,j),              &
                                              first_time_step)
                         else
-                           call calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d, ng1d,  &
-                                             t1d, p1d, dBZ, rand1, kts, kte, i, j, &
-                                             melti)
+                           call calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d, ng1d, qb1d,  &
+                                             t1d, p1d, dBZ, kts, kte, i, j, &
+                                             rand1, melti)
                            
 !                           call calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d,   &
 !                                             t1d, p1d, dBZ, kts, kte, i, j)

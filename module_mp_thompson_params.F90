@@ -12,6 +12,10 @@ module module_mp_thompson_params
     use machine, only: wp => kind_phys, sp => kind_sngl_prec, dp => kind_dbl_prec
 #endif
 
+#if defined(CCPP) && defined(MPI)
+   use mpi_f08
+#endif
+   
     implicit none
 
     logical, parameter :: iiwarm = .false.
