@@ -2692,20 +2692,24 @@ contains
     real function Eff_aero(D, Da, visc,rhoa,Temp,species)
 
         implicit none
-        real(wp) :: D, Da, visc, rhoa, Temp
-        character(LEN=1) :: species
-        real(wp) :: aval, Cc, diff, Re, Sc, St, St2, vt, Eff
+        real(wp), intent(in) :: D, Da, visc, rhoa, Temp
+        character(LEN=1), intent(in) :: species
+        real(wp) :: aval, Cc, diff, Re, Sc, St, St2, vt, Eff, rho_p
         real(wp), parameter :: boltzman = 1.3806503E-23
         real(wp), parameter :: meanPath = 0.0256E-6
 
         vt = 1.
+        rho_p = rho_w2
         if (species .eq. 'r') then
             vt = -0.1021 + 4.932E3*D - 0.9551E6*D*D                        &
-                + 0.07934E9*D*D*D - 0.002362E12*D*D*D*D
+                 + 0.07934E9*D*D*D - 0.002362E12*D*D*D*D
+            rho_p = rho_w2
         elseif (species .eq. 's') then
-            vt = av_s*D**bv_s
+           vt = av_s*D**bv_s
+           rho_p = rho_s2
         elseif (species .eq. 'g') then
-            vt = av_g(idx_bg1)*D**bv_g(idx_bg1)
+           vt = av_g(idx_bg1)*D**bv_g(idx_bg1)
+           rho_p = rho_g(idx_bg1)
         endif
 
         Cc    = 1. + 2.*meanPath/Da *(1.257+0.4*exp(-0.55*Da/meanPath))
@@ -2714,13 +2718,13 @@ contains
         Re    = 0.5*rhoa*D*vt/visc
         Sc    = visc/(rhoa*diff)
 
-        St    = Da*Da*vt*1000./(9.*visc*D)
-        aval  = 1.+LOG(1.+Re)
+        St    = (rho_p-rhoa)*Da*Da*vt*Cc/(9.*visc*D)
+        aval  = LOG(1.+Re)
         St2   = (1.2 + 1./12.*aval)/(1.+aval)
 
-        eff = 4./(re*sc) * (1. + 0.4*sqrt(re)*sc**0.3333                  &
-            + 0.16*sqrt(re)*sqrt(sc))                  &
-            + 4.*da/d * (0.02 + da/d*(1.+2.*sqrt(re)))
+        eff = 4./(Re*Sc) * (1. + 0.4*sqrt(Re)*Sc**0.3333                  &
+            + 0.16*sqrt(Re)*sqrt(Sc))                  &
+            + 4.*Da/D * (0.02 + Da/D*(1.+2.*sqrt(Re)))
 
         if (St.gt.St2) Eff = Eff  + ( (St-St2)/(St-St2+0.666667))**1.5
         eff_aero = max(1.e-5, min(eff, 1.0))
