@@ -10,7 +10,7 @@ module module_mp_thompson
     use mpas_atmphys_functions, only: gammp, wgamma, rslf, rsif
     use mpas_atmphys_utilities
     use mpas_io_units, only : mpas_new_unit, mpas_release_unit
-    use mp_radar
+!    use mp_radar
 
 contains
 
@@ -1004,15 +1004,12 @@ contains
                     endif
                 enddo
 
-!        IF ( PRESENT (diagflag) ) THEN
-!        if (diagflag .and. do_radar_ref == 1) then
-!         call calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d,       &
-!                     t1d, p1d, dBZ, kts, kte, i, j)
-!         do k = kts, kte
-!            refl_10cm(i,k,j) = MAX(-35., dBZ(k))
-!         enddo
-!        endif
-!        ENDIF
+                !Reflectivity
+                call calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d, ng1d, qb1d,    &
+                     t1d, p1d, dBZ, kts, kte, i, j)
+                do k = kts, kte
+                   refl_10cm(i,k,j) = MAX(-35., dBZ(k))
+                enddo
 
                 IF (has_reqc.ne.0 .and. has_reqi.ne.0 .and. has_reqs.ne.0) THEN
                     do k = kts, kte
