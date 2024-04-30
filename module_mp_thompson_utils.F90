@@ -1,3 +1,4 @@
+
 module module_mp_thompson_utils
 
 #if defined(CCPP)
@@ -321,6 +322,7 @@ contains
 !..Locate K-level of start of melting (k_0 is level above).
 !+---+-----------------------------------------------------------------+
         k_0 = kts
+        if (present(melti)) then
         if ( melti ) then
             K_LOOP:do k = kte-1, kts, -1
                 if ((temp(k).gt.273.15) .and. L_qr(k)                         &
@@ -329,7 +331,8 @@ contains
                     EXIT K_LOOP
                 endif
             enddo K_LOOP
-        endif
+         endif
+         endif
 !+---+-----------------------------------------------------------------+
 !..Assume Rayleigh approximation at 10 cm wavelength. Rain (all temps)
 !.. and non-water-coated snow and graupel when below freezing are
@@ -355,7 +358,7 @@ contains
 !.. Uses code from Uli Blahak (rayleigh_soak_wetgraupel and supporting
 !.. routines).
 !+---+-----------------------------------------------------------------+
-
+        if (present(melti)) then
         if (.not. iiwarm .and. melti .and. k_0.ge.2) then
             do k = k_0-1, kts, -1
 
@@ -404,7 +407,8 @@ contains
 
             enddo
         endif
-
+        endif
+        
         do k = kte, kts, -1
             dBZ(k) = 10.*log10((ze_rain(k)+ze_snow(k)+ze_graupel(k))*1.d18)
         enddo
