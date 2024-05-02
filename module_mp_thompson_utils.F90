@@ -6,6 +6,7 @@ module module_mp_thompson_utils
     use machine, only: wp => kind_phys, sp => kind_sngl_prec, dp => kind_dbl_prec
 #elif defined(mpas)
     use mpas_kind_types, only: wp => RKIND, sp => R4KIND, dp => R8KIND
+    use mpas_atmphys_functions, only: gammp
 #endif
 
     use module_mp_thompson_params
@@ -720,7 +721,7 @@ end subroutine table_ccnAct
 !+---+-----------------------------------------------------------------+
 
     subroutine calc_effectRad (t1d, p1d, qv1d, qc1d, nc1d, qi1d, ni1d, qs1d,   &
-        &                re_qc1d, re_qi1d, re_qs1d, kts, kte)
+        &                re_qc1d, re_qi1d, re_qs1d, kts, kte, configs)
     
             IMPLICIT NONE
     
@@ -729,6 +730,8 @@ end subroutine table_ccnAct
             REAL, DIMENSION(kts:kte), INTENT(IN)::                            &
             &                    t1d, p1d, qv1d, qc1d, nc1d, qi1d, ni1d, qs1d
             REAL, DIMENSION(kts:kte), INTENT(INOUT):: re_qc1d, re_qi1d, re_qs1d
+            type(config_flags), intent(in) :: configs
+            
     !..Local variables
             INTEGER:: k
             REAL, DIMENSION(kts:kte):: rho, rc, nc, ri, ni, rs
@@ -748,7 +751,7 @@ end subroutine table_ccnAct
                 rho(k) = 0.622*p1d(k)/(R*t1d(k)*(qv1d(k)+0.622))
                 rc(k) = MAX(R1, qc1d(k)*rho(k))
                 nc(k) = MAX(2., MIN(nc1d(k)*rho(k), Nt_c_max))
-                if (.NOT. is_aerosol_aware) nc(k) = Nt_c
+                if (.NOT. configs%aerosol_aware) nc(k) = Nt_c
                 if (rc(k).gt.R1 .and. nc(k).gt.R2) has_qc = .true.
                 ri(k) = MAX(R1, qi1d(k)*rho(k))
                 ni(k) = MAX(R2, ni1d(k)*rho(k))
@@ -832,7 +835,7 @@ end subroutine table_ccnAct
     !+---+-----------------------------------------------------------------+
     
     subroutine calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d, ng1d, qb1d, &
-        t1d, p1d, dBZ, kts, kte, ii, jj, rand1, melti, &
+        t1d, p1d, dBZ, kts, kte, ii, jj, configs, rand1, melti, &
         vt_dBZ, first_time_step)
 
         IMPLICIT NONE
@@ -845,7 +848,8 @@ end subroutine table_ccnAct
         REAL, DIMENSION(kts:kte), INTENT(INOUT):: dBZ
         REAL, DIMENSION(kts:kte), OPTIONAL, INTENT(INOUT):: vt_dBZ
         LOGICAL, OPTIONAL, INTENT(IN) :: first_time_step
-
+        type(config_flags), intent(in) :: configs
+        
 !..Local variables
         LOGICAL :: do_vt_dBZ
         LOGICAL :: allow_wet_graupel
@@ -931,7 +935,7 @@ end subroutine table_ccnAct
                 rb(k) = MAX(qg1d(k)/rho_g(NRHG), qb1d(k))
                 rb(k) = MIN(qg1d(k)/rho_g(1), rb(k))
                 idx_bg(k) = MAX(1,MIN(NINT(qg1d(k)/rb(k) *0.01)+1,NRHG))
-                if (.not. is_hail_aware) idx_bg(k) = idx_bg1
+                if (.not. configs%hail_aware) idx_bg(k) = idx_bg1
                 L_qg(k) = .true.
             else
                 rg(k) = R1

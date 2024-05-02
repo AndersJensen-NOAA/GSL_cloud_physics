@@ -10,13 +10,9 @@ module module_mp_thompson
     use mpas_atmphys_functions, only: gammp, wgamma, rslf, rsif
     use mpas_atmphys_utilities
     use mpas_io_units, only : mpas_new_unit, mpas_release_unit
-    use module_mp_radar, only : radar_init
-
+    use mp_radar, only : radar_init
 
     type(config_flags) configs
-
-    configs%aerosol_aware = .true.
-    configs%hail_aware = .false.
 
 contains
 !=================================================================================================================
@@ -26,13 +22,14 @@ contains
 ! Input:
 !   l_mp_tables = .false. to build lookup tables. If l_mp_tables = .true., lookup tables are not built.
 
-    ! AAJ ADD MORE ARGS to driver for hail_aware
-    subroutine thompson_init(l_mp_tables, aerosol_aware_flag, hail_aware_flag)
+    ! AAJ No support yet for hail_aware in microphysics driver
+    subroutine thompson_init(l_mp_tables, hail_aware_flag, aerosol_aware_flag)
     
         implicit none
 
 ! Input arguments:
-        logical, intent(in) :: l_mp_tables, hail_aware_flag, aerosol_aware_flag
+        logical, intent(in) :: l_mp_tables, hail_aware_flag
+        logical, optional, intent(in) :: aerosol_aware_flag
 
         integer, parameter :: open_OK = 0
         integer :: i, j, k, l, m, n
@@ -41,15 +38,16 @@ contains
         integer :: mp_unit
         character(len=132) :: message
 
-        configs%aerosol_aware = aerosol_aware_flag
         configs%hail_aware = hail_aware_flag
-
-        write(message, '(L1)') configs%aerosol_aware
-        call physics_message('--- thompson_init() called with aerosol_aware_flag = ' // trim(message))
-
         write(message, '(L1)') configs%hail_aware
         call physics_message('--- thompson_init() called with hail_aware_flag = ' // trim(message))
 
+        if (present(aerosol_aware_flag)) then
+           configs%aerosol_aware = aerosol_aware_flag
+           write(message, '(L1)') configs%aerosol_aware
+           call physics_message('--- thompson_init() called with aerosol_aware_flag = ' // trim(message))
+        endif
+        
 ! Allocate space for lookup tables (J. Michalakes 2009Jun08).
         if (hail_aware_flag) then
             dimNRHG = NRHG
@@ -951,7 +949,7 @@ contains
 !=================================================================================================================
 ! Reflectivity
                 call calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d, ng1d, qb1d, &
-                     t1d, p1d, dBZ, kts, kte, i, j)
+                     t1d, p1d, dBZ, kts, kte, i, j, configs)
                 do k = kts, kte
                    refl_10cm(i,k,j) = max(-35., dBZ(k))
                 enddo
@@ -964,7 +962,7 @@ contains
                         re_qs1d(k) = 9.99E-6
                     enddo
                     call calc_effectRad (t1d, p1d, qv1d, qc1d, nc1d, qi1d, ni1d, qs1d,  &
-                        re_qc1d, re_qi1d, re_qs1d, kts, kte)
+                        re_qc1d, re_qi1d, re_qs1d, kts, kte, configs)
                     do k = kts, kte
                         re_cloud(i,k,j) = MAX(2.49E-6, MIN(re_qc1d(k), 50.E-6))
                         re_ice(i,k,j)   = MAX(4.99E-6, MIN(re_qi1d(k), 125.E-6))

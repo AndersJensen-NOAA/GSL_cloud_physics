@@ -540,7 +540,7 @@ contains
                 rb(k) = R1/rho(k)/rho_g(NRHG)
                 L_qg(k) = .false.
             endif
-            if (.not. is_hail_aware) idx_bg(k) = idx_bg1
+            if (.not. configs%hail_aware) idx_bg(k) = idx_bg1
         enddo
 
 !     if (debug_flag) then
@@ -2245,7 +2245,7 @@ contains
                     vtg = 0.
 
                     if (rg(k).gt. R1) then
-                        if (is_hail_aware) then
+                        if (configs%hail_aware) then
                             xrho_g = MAX(rho_g(1),MIN(rg(k)/rho(k)/rb(k),rho_g(NRHG)))
                             afall = a_coeff*((4.0*xrho_g*9.8)/(3.0*rho(k)))**b_coeff
                             afall = afall * visco(k)**(1.0-2.0*b_coeff)
@@ -2665,7 +2665,7 @@ contains
         endif calculate_extended_diagnostics
 #endif
 
-    end subroutine mp_thompson
+    end subroutine mp_thompson_main
 !=================================================================================================================
 
 !=================================================================================================================

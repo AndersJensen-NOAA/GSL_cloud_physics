@@ -16,6 +16,7 @@ module module_mp_thompson_params
         logical :: hail_aware
     end type config_flags
 
+    logical :: build_table_hail_aware = .true.
     logical, parameter :: iiwarm = .false.
 !    logical :: is_aerosol_aware = .true.
 #if defined(CCPP)
@@ -23,7 +24,6 @@ module module_mp_thompson_params
 #endif
     logical, parameter :: dustyIce = .true.
     logical, parameter :: homogIce = .true.
-!    logical :: is_hail_aware = .false.
 
     integer, parameter :: IFDRY = 0
     real(wp), parameter :: T_0 = 273.15
