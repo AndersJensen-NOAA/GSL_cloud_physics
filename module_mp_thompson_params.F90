@@ -54,8 +54,10 @@ module module_mp_thompson_params
     real(wp) :: Nt_c
 #endif
     real(wp), parameter :: Nt_c_max = 1999.e6
-    real(wp), parameter :: Nt_c_o = 50.e6
-    real(wp), parameter :: Nt_c_l = 100.e6
+    ! real(wp), parameter :: Nt_c_o = 50.e6
+    ! real(wp), parameter :: Nt_c_l = 100.e6
+    real(wp), parameter :: Nt_c_o = 100.e6
+    real(wp), parameter :: Nt_c_l = 300.e6
     ! real(wp) :: Nt_c
     real(wp) ::  mu_c_o, mu_c_l
 

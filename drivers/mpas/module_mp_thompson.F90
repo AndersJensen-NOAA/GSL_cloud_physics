@@ -54,7 +54,7 @@ contains
         else
             av_g(idx_bg1) = av_g_old
             bv_g(idx_bg1) = bv_g_old
-            dimNRHG = NRHG1
+            dimNRHG = NRHG
         endif
 
         micro_init = .false.
