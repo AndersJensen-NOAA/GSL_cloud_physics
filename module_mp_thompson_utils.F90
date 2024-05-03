@@ -47,10 +47,11 @@ subroutine qr_acr_qg(NRHGtable)
     enddo
 
     do n3 = 1, NRHGtable
-        do n = 1, nbg
-            idx_bg = n3
-            vg(n,n3) = av_g(idx_bg)*Dg(n)**bv_g(idx_bg)
-        enddo
+       do n = 1, nbg
+          if (NRHGtable == NRHG) idx_bg = n3
+          if (NRHGtable == NRHG1) idx_bg = idx_bg1
+          vg(n,n3) = av_g(idx_bg)*Dg(n)**bv_g(idx_bg)
+       enddo
     enddo
 
     km_s = 0
@@ -68,7 +69,8 @@ subroutine qr_acr_qg(NRHGtable)
         enddo
 
         do n3 = 1, NRHGtable
-            idx_bg = n3
+           if (NRHGtable == NRHG) idx_bg = n3
+           if (NRHGtable == NRHG1) idx_bg = idx_bg1
 
             do j = 1, ntb_g
                 do i = 1, ntb_g1
