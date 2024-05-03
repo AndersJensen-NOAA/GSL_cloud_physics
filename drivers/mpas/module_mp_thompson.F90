@@ -91,14 +91,14 @@ contains
                  using_hail_aware_table = .true.
                  call physics_message('--- thompson_init() ' // &
                       'Lookup table for qr_acr_qg is hail aware.')
-                 endif
               else
                  using_hail_aware_table = .false.
                  if (hail_aware_flag) using_hail_aware_table = .true.
                  call physics_message('--- thompson_init() ' // &
                       'Could not determine if lookup table for qr_acr_qg is hail aware based on file size.')
               endif
-
+           endif
+        endif
 !=================================================================================================================
 ! Allocate space for lookup tables (J. Michalakes 2009Jun08).
         if (.not. allocated(tcg_racg)) then
