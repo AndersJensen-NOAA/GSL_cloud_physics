@@ -1929,6 +1929,9 @@ contains
                         endif
                         pnc_wcd(k) = 0.5*(xnc-nc(k) + abs(xnc-nc(k)))*odts*orho
 
+                        ! Be careful here: initial cloud evaporation can increase aerosols
+                        nwfaten(k) = nwfaten(k) - pnc_wcd(k)
+
 !+---+-----------------------------------------------------------------+ !  EVAPORATION
                     elseif (clap .lt. -eps .AND. ssatw(k).lt.-1.E-6) then
                         tempc = temp(k) - 273.15
@@ -1973,13 +1976,17 @@ contains
 !prw_vcd(k) = MAX(DBLE(-rc(k)*orho*odt),                     &
 !           -tpc_wev(idx_d, idx_c, idx_n)*orho*odt)
                         prw_vcd(k) = max(real(-rc(k)*0.99*orho*odt, kind=dp), prw_vcd(k))
-                        pnc_wcd(k) = max(real(-nc(k)*0.99*orho*odt, kind=dp), &
-                            real(-tnc_wev(idx_d, idx_c, idx_n)*orho*odt, kind=dp))
+                        pnc_wcd(k) = max(real(-nc(k)*0.99*orho*odt, &
+                             kind=dp), real(-tnc_wev(idx_d, idx_c, idx_n)*orho*odt, kind=dp))
+                        ! Be careful here: initial cloud evaporation can increase aerosols
+                        nwfaten(k) = nwfaten(k) - pnc_wcd(k)
 
                     endif
                 else
                     prw_vcd(k) = -rc(k)*orho*odt
                     pnc_wcd(k) = -nc(k)*orho*odt
+                    ! Be careful here: initial cloud evaporation can increase aerosols
+!!                    nwfaten(k) = nwfaten(k) - pnc_wcd(k)
                 endif
 
 !+---+-----------------------------------------------------------------+
@@ -1987,8 +1994,6 @@ contains
                 qvten(k) = qvten(k) - prw_vcd(k)
                 qcten(k) = qcten(k) + prw_vcd(k)
                 ncten(k) = ncten(k) + pnc_wcd(k)
-                ! Be careful here: initial cloud evaporation can increase aerosols
-                nwfaten(k) = nwfaten(k) - pnc_wcd(k)
 
                 tten(k) = tten(k) + lvap(k)*ocp(k)*prw_vcd(k)*(1-IFDRY)
                 rc(k) = max(r1, (qc1d(k) + dt*qcten(k))*rho(k))
