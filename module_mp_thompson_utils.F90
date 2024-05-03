@@ -1173,7 +1173,18 @@ end subroutine table_ccnAct
         endif
 
     end subroutine calc_refl10cm
-!
+
+    elemental subroutine make_hydrometeor_number_concentrations(qc, qr, qi, nwfa, temp, rhoa, nc, nr, ni)
+      implicit none
+
+      real, intent(in) :: qc, qr, qi, nwfa, temp, rhoa
+      real, intent(out) :: nc, nr, ni
+
+      nc = 0.
+      nr = 0.
+      ni = 0.
+
+    end subroutine make_hydrometeor_number_concentrations
 
 !>\ingroup aathompson
 !!Table of lookup values of radiative effective radius of ice crystals
