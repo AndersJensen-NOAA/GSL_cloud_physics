@@ -178,7 +178,7 @@ contains
         integer :: nir, nis, nig, nii, nic, niin
         integer :: idx_tc, idx_t, idx_s, idx_g1, idx_g, idx_r1, idx_r,     &
             idx_i1, idx_i, idx_c, idx, idx_d, idx_n, idx_in
-        integer, dimension(kts:kte) :: idx_bg
+        integer, dimension(kts:kte) :: idx_bg, idx_table
 
         logical :: melti, no_micro
         logical, dimension(kts:kte) :: l_qc, l_qi, l_qr, l_qs, l_qg
@@ -514,6 +514,7 @@ contains
                 rb(k) = min(qg1d(k)/rho_g(1), rb(k))
                 qb1d(k) = rb(k)
                 idx_bg(k) = max(1,min(nint(qg1d(k)/rb(k) *0.01)+1,nrhg))
+                idx_table(k) = idx_bg(k)
                 if (ng(k).le. R2) then
                     mvd_g(k) = 1.5E-3
                     lamg = (3.0 + mu_g + 0.672) / mvd_g(k)
@@ -535,12 +536,21 @@ contains
                 ng1d(k) = 0.0
                 qb1d(k) = 0.0
                 idx_bg(k) = idx_bg1
+                idx_table(k) = idx_bg(k)
                 rg(k) = R1
                 ng(k) = R2
                 rb(k) = R1/rho(k)/rho_g(NRHG)
                 L_qg(k) = .false.
             endif
-            if (.not. configs%hail_aware) idx_bg(k) = idx_bg1
+            if (.not. configs%hail_aware) then
+               idx_bg(k) = idx_bg1
+               idx_table(k) = idx_bg(k)
+               ! If dimNRHG = 1, set idx_table(k) = 1,
+               ! otherwise idx_bg1
+               if(.not. using_hail_aware_table) then
+                  idx_table(k) = 1
+               endif
+            endif
         enddo
 
 !     if (debug_flag) then
@@ -1053,25 +1063,25 @@ contains
 !.. results in lookup table.
                     if (rg(k).ge. r_g(1)) then
                         if (temp(k).lt.T_0) then
-                            prg_rcg(k) = tmr_racg(idx_g1,idx_g,idx_bg(k),idx_r1,idx_r)  &
-                                + tcr_gacr(idx_g1,idx_g,idx_bg(k),idx_r1,idx_r)
+                            prg_rcg(k) = tmr_racg(idx_g1,idx_g,idx_table(k),idx_r1,idx_r)  &
+                                + tcr_gacr(idx_g1,idx_g,idx_table(k),idx_r1,idx_r)
                             prg_rcg(k) = min(real(rr(k)*odts, kind=dp), prg_rcg(k))
                             prr_rcg(k) = -prg_rcg(k)
-                            pnr_rcg(k) = tnr_racg(idx_g1,idx_g,idx_bg(k),idx_r1,idx_r)  &   ! RAIN2M
-                                + tnr_gacr(idx_g1,idx_g,idx_bg(k),idx_r1,idx_r)
+                            pnr_rcg(k) = tnr_racg(idx_g1,idx_g,idx_table(k),idx_r1,idx_r)  &   ! RAIN2M
+                                + tnr_gacr(idx_g1,idx_g,idx_table(k),idx_r1,idx_r)
                             pnr_rcg(k) = min(real(nr(k)*odts, kind=dp), pnr_rcg(k))
                             !-GT        pbg_rcg(k) = prg_rcg(k)/(0.5*(rho_i+rho_g(idx_bg(k))))
                             pbg_rcg(k) = prg_rcg(k)/rho_i
                         else
-                            prr_rcg(k) = tcg_racg(idx_g1,idx_g,idx_bg(k),idx_r1,idx_r)
+                            prr_rcg(k) = tcg_racg(idx_g1,idx_g,idx_table(k),idx_r1,idx_r)
                             prr_rcg(k) = min(real(rg(k)*odts, kind=dp), prr_rcg(k))
                             prg_rcg(k) = -prr_rcg(k)
-                            png_rcg(k) = tnr_racg(idx_g1,idx_g,idx_bg(k),idx_r1,idx_r)
-                            !!!                    + tnr_gacr(idx_g1,idx_g,idx_bg(k),idx_r1,idx_r)
+                            png_rcg(k) = tnr_racg(idx_g1,idx_g,idx_table(k),idx_r1,idx_r)
+                            !!!                    + tnr_gacr(idx_g1,idx_g,idx_table(k),idx_r1,idx_r)
                             png_rcg(k) = min(real(ng(k)*odts, kind=dp), png_rcg(k))
                             pbg_rcg(k) = prg_rcg(k)/rho_g(idx_bg(k))
                             !..Put in explicit drop break-up due to collisions.
-                            pnr_rcg(k) = -1.5*tnr_gacr(idx_g1,idx_g,idx_bg(k),idx_r1,idx_r)  ! RAIN2M
+                            pnr_rcg(k) = -1.5*tnr_gacr(idx_g1,idx_g,idx_table(k),idx_r1,idx_r)  ! RAIN2M
                         endif
                     endif
                 endif
@@ -1369,8 +1379,7 @@ contains
                     endif
 
                 endif
-!!                if (.not. is_hail_aware) idx_bg(k) = idx_bg1
-
+                if (.not. configs%hail_aware) idx_bg(k) = idx_bg1
             enddo
         endif
 
@@ -2566,7 +2575,7 @@ contains
                 qb1d(k) = max(qg1d(k)/rho_g(nrhg), qb1d(k) + qbten(k)*dt)
                 qb1d(k) = min(qg1d(k)/rho_g(1), qb1d(k))
                 idx_bg(k) = max(1,min(nint(qg1d(k)/qb1d(k) *0.01)+1,nrhg))
-!!                if (.not. is_hail_aware) idx_bg(k) = idx_bg1
+                if (.not. configs%hail_aware) idx_bg(k) = idx_bg1
                 lamg = (am_g(idx_bg(k))*cgg(3,1)*ogg2*ng1d(k)/qg1d(k))**obmg
                 mvd_g(k) = (3.0 + mu_g + 0.672) / lamg
                 if (mvd_g(k) .gt. 25.4E-3) then

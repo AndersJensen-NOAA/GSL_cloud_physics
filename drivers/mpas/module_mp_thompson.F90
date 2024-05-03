@@ -32,6 +32,9 @@ contains
         logical, optional, intent(in) :: aerosol_aware_flag
 
         integer, parameter :: open_OK = 0
+        integer, parameter :: num_records = 5
+        integer :: qr_acr_qg_filesize, qr_acr_qg_check, qr_acr_qg_dim1size, qr_acr_qg_dim9size
+        logical :: qr_acr_qg_exists
         integer :: i, j, k, l, m, n
         integer :: istat
         logical :: micro_init
@@ -54,10 +57,47 @@ contains
         else
             av_g(idx_bg1) = av_g_old
             bv_g(idx_bg1) = bv_g_old
-            dimNRHG = NRHG
+            dimNRHG = NRHG1
         endif
 
         micro_init = .false.
+
+!=================================================================================================================
+! Check the qr_acr_qg lookup table to make sure it is compatible with runtime options
+
+        ! If lookup tables are already built
+        if (l_mp_tables) then
+
+           inquire(file='MP_THOMPSON_QRacrQG_DATA.DBL', exist=qr_acr_qg_exists)
+           if (qr_acr_qg_exists) then ! Check again that file exists
+
+! Add check on qr_ac_qg filesize to determine if table includes hail-awareness (dimNRHG=9)
+              qr_acr_qg_check = dp * num_records * (dimNRHG * ntb_g1 * ntb_g * ntb_r1 * ntb_r + 1)
+              qr_acr_qg_dim1size = dp * num_records * (NRHG1 * ntb_g1 * ntb_g * ntb_r1 * ntb_r + 1)
+              qr_acr_qg_dim9size = dp * num_records * (NRHG * ntb_g1 * ntb_g * ntb_r1 * ntb_r + 1)
+
+              inquire(file='MP_THOMPSON_QRacrQG_DATA.DBL', size=qr_acr_qg_filesize)
+
+              if (qr_acr_qg_filesize == qr_acr_qg_dim1size) then
+                 using_hail_aware_table = .false.
+                 call physics_message('--- thompson_init() ' // &
+                      'Lookup table for qr_acr_qg is not hail aware.')
+                 if (hail_aware_flag) then
+                    call physics_error_fatal('--- thompson_init() Cannot use hail-aware microphysics ' // &
+                         'with non hail-aware qr_acr_qg lookup table. ' // &
+                         'Please rebuild table with parameter build_hail_aware_table set to true.')
+                 endif
+              elseif (qr_acr_qg_filesize == qr_acr_qg_dim9size) then
+                 using_hail_aware_table = .true.
+                 call physics_message('--- thompson_init() ' // &
+                      'Lookup table for qr_acr_qg is hail aware.')
+                 endif
+              else
+                 using_hail_aware_table = .false.
+                 if (hail_aware_flag) using_hail_aware_table = .true.
+                 call physics_message('--- thompson_init() ' // &
+                      'Could not determine if lookup table for qr_acr_qg is hail aware based on file size.')
+              endif
 
 !=================================================================================================================
 ! Allocate space for lookup tables (J. Michalakes 2009Jun08).
@@ -489,7 +529,7 @@ contains
             iostat = istat)
             if(istat /= open_OK) &
             call physics_error_fatal('subroutine thompson_init: ' // &
-            'failure opening CCN_ACTIVATE.Bin')
+            'failure opening CCN_ACTIVATE.BIN')
             read(mp_unit) tnccn_act
             close(unit=mp_unit)
 

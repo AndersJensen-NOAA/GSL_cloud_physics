@@ -16,7 +16,7 @@ module module_mp_thompson_params
         logical :: hail_aware
     end type config_flags
 
-    logical :: build_table_hail_aware = .true.
+    logical :: build_hail_aware_table = .false.
     logical, parameter :: iiwarm = .false.
 !    logical :: is_aerosol_aware = .true.
 #if defined(CCPP)
@@ -37,6 +37,7 @@ module module_mp_thompson_params
     integer, parameter :: NRHG = 9
     integer, parameter :: NRHG1 = 1
     integer :: dimNRHG
+    logical :: using_hail_aware_table
 
     real(wp), dimension(NRHG), parameter :: rho_g = (/50., 100., 200., 300., 400., 500., 600., 700., 800./)
     integer, parameter :: idx_bg1 = 6 ! index for rhog when mp=8 or 28
