@@ -10,7 +10,7 @@ module module_mp_thompson
     use mpas_atmphys_functions, only: gammp, wgamma, rslf, rsif
     use mpas_atmphys_utilities
     use mpas_io_units, only : mpas_new_unit, mpas_release_unit
-    use mp_radar
+!    use mp_radar
 
 contains
 
@@ -1004,15 +1004,12 @@ contains
                     endif
                 enddo
 
-!        IF ( PRESENT (diagflag) ) THEN
-!        if (diagflag .and. do_radar_ref == 1) then
-!         call calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d,       &
-!                     t1d, p1d, dBZ, kts, kte, i, j)
-!         do k = kts, kte
-!            refl_10cm(i,k,j) = MAX(-35., dBZ(k))
-!         enddo
-!        endif
-!        ENDIF
+                !Reflectivity
+                call calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d, ng1d, qb1d,    &
+                     t1d, p1d, dBZ, kts, kte, i, j)
+                do k = kts, kte
+                   refl_10cm(i,k,j) = MAX(-35., dBZ(k))
+                enddo
 
                 IF (has_reqc.ne.0 .and. has_reqi.ne.0 .and. has_reqs.ne.0) THEN
                     do k = kts, kte
@@ -1033,14 +1030,14 @@ contains
         enddo j_loop
 
 ! DEBUG - GT
-        write(mp_debug,'(a,7(a,e13.6,1x,a,i3,a,i3,a,i3,a,1x))') 'MP-GT:', &
-            'qc: ', qc_max, '(', imax_qc, ',', jmax_qc, ',', kmax_qc, ')', &
-            'qr: ', qr_max, '(', imax_qr, ',', jmax_qr, ',', kmax_qr, ')', &
-            'qi: ', qi_max, '(', imax_qi, ',', jmax_qi, ',', kmax_qi, ')', &
-            'qs: ', qs_max, '(', imax_qs, ',', jmax_qs, ',', kmax_qs, ')', &
-            'qg: ', qg_max, '(', imax_qg, ',', jmax_qg, ',', kmax_qg, ')', &
-            'ni: ', ni_max, '(', imax_ni, ',', jmax_ni, ',', kmax_ni, ')', &
-            'nr: ', nr_max, '(', imax_nr, ',', jmax_nr, ',', kmax_nr, ')'
+!        write(mp_debug,'(a,7(a,e13.6,1x,a,i3,a,i3,a,i3,a,1x))') 'MP-GT:', &
+!            'qc: ', qc_max, '(', imax_qc, ',', jmax_qc, ',', kmax_qc, ')', &
+!            'qr: ', qr_max, '(', imax_qr, ',', jmax_qr, ',', kmax_qr, ')', &
+!            'qi: ', qi_max, '(', imax_qi, ',', jmax_qi, ',', kmax_qi, ')', &
+!            'qs: ', qs_max, '(', imax_qs, ',', jmax_qs, ',', kmax_qs, ')', &
+!            'qg: ', qg_max, '(', imax_qg, ',', jmax_qg, ',', kmax_qg, ')', &
+!            'ni: ', ni_max, '(', imax_ni, ',', jmax_ni, ',', kmax_ni, ')', &
+!            'nr: ', nr_max, '(', imax_nr, ',', jmax_nr, ',', kmax_nr, ')'
 !     CALL wrf_debug(150, mp_debug)
 ! END DEBUG - GT
 

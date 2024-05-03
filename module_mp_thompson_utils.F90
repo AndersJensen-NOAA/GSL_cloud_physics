@@ -1,3 +1,4 @@
+
 module module_mp_thompson_utils
 
 #if defined(CCPP)
@@ -7,6 +8,7 @@ module module_mp_thompson_utils
 #endif
 
     use module_mp_thompson_params
+    use mp_radar
     
 contains
 !+---+-----------------------------------------------------------------+
@@ -130,97 +132,133 @@ contains
     !.. melting level interface.
     !+---+-----------------------------------------------------------------+
     
-        subroutine calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d,     &
-            t1d, p1d, dBZ, kts, kte, ii, jj)
-    
-            IMPLICIT NONE
-    
-    !..Sub arguments
-            INTEGER, INTENT(IN):: kts, kte, ii, jj
-            REAL, DIMENSION(kts:kte), INTENT(IN)::                            &
-                qv1d, qc1d, qr1d, nr1d, qs1d, qg1d, t1d, p1d
-            REAL, DIMENSION(kts:kte), INTENT(INOUT):: dBZ
-    !     REAL, DIMENSION(kts:kte), INTENT(INOUT):: vt_dBZ
-    
-    !..Local variables
-            REAL, DIMENSION(kts:kte):: temp, pres, qv, rho, rhof
-            REAL, DIMENSION(kts:kte):: rc, rr, nr, rs, rg
-    
-            DOUBLE PRECISION, DIMENSION(kts:kte):: ilamr, ilamg, N0_r, N0_g
-            REAL, DIMENSION(kts:kte):: mvd_r
-            REAL, DIMENSION(kts:kte):: smob, smo2, smoc, smoz
-            REAL:: oM3, M0, Mrat, slam1, slam2, xDs
-            REAL:: ils1, ils2, t1_vts, t2_vts, t3_vts, t4_vts
-            REAL:: vtr_dbz_wt, vts_dbz_wt, vtg_dbz_wt
-    
-            REAL, DIMENSION(kts:kte):: ze_rain, ze_snow, ze_graupel
-    
-            DOUBLE PRECISION:: N0_exp, N0_min, lam_exp, lamr, lamg
-            REAL:: a_, b_, loga_, tc0
-            DOUBLE PRECISION:: fmelt_s, fmelt_g
-    
-            INTEGER:: i, k, k_0, kbot, n
-            LOGICAL:: melti
-            LOGICAL, DIMENSION(kts:kte):: L_qr, L_qs, L_qg
-    
-            DOUBLE PRECISION:: cback, x, eta, f_d
-            REAL:: xslw1, ygra1, zans1
-    
-    !+---+
-    
+    subroutine calc_refl10cm (qv1d, qc1d, qr1d, nr1d, qs1d, qg1d, ng1d, qb1d, &
+        t1d, p1d, dBZ, kts, kte, ii, jj, rand1, melti, &
+        vt_dBZ, first_time_step)
+
+        IMPLICIT NONE
+
+!..Sub arguments
+        INTEGER, INTENT(IN):: kts, kte, ii, jj
+        REAL, OPTIONAL, INTENT(IN):: rand1
+        REAL, DIMENSION(kts:kte), INTENT(IN)::                            &
+            qv1d, qc1d, qr1d, nr1d, qs1d, qg1d, ng1d, qb1d, t1d, p1d
+        REAL, DIMENSION(kts:kte), INTENT(INOUT):: dBZ
+        REAL, DIMENSION(kts:kte), OPTIONAL, INTENT(INOUT):: vt_dBZ
+        LOGICAL, OPTIONAL, INTENT(IN) :: first_time_step
+
+!..Local variables
+        LOGICAL :: do_vt_dBZ
+        LOGICAL :: allow_wet_graupel
+        LOGICAL :: allow_wet_snow
+        REAL, DIMENSION(kts:kte):: temp, pres, qv, rho, rhof
+        REAL, DIMENSION(kts:kte):: rc, rr, nr, rs, rg, ng, rb
+        INTEGER, DIMENSION(kts:kte):: idx_bg
+
+        DOUBLE PRECISION, DIMENSION(kts:kte):: ilamr, ilamg, N0_r, N0_g
+        REAL, DIMENSION(kts:kte):: mvd_r
+        REAL, DIMENSION(kts:kte):: smob, smo2, smoc, smoz
+        REAL:: oM3, M0, Mrat, slam1, slam2, xDs
+        REAL:: ils1, ils2, t1_vts, t2_vts, t3_vts, t4_vts
+        REAL:: vtr_dbz_wt, vts_dbz_wt, vtg_dbz_wt
+
+        REAL, DIMENSION(kts:kte):: ze_rain, ze_snow, ze_graupel
+
+        DOUBLE PRECISION:: N0_exp, N0_min, lam_exp, lamr, lamg
+        REAL:: a_, b_, loga_, tc0, SR
+        DOUBLE PRECISION:: fmelt_s, fmelt_g
+
+        INTEGER:: i, k, k_0, kbot, n
+        LOGICAL, OPTIONAL, INTENT(IN):: melti
+        LOGICAL, DIMENSION(kts:kte):: L_qr, L_qs, L_qg
+
+        DOUBLE PRECISION:: cback, x, eta, f_d
+        REAL:: xslw1, ygra1, zans1
+
+!+---+
+        if (present(vt_dBZ) .and. present(first_time_step)) then
+            do_vt_dBZ = .true.
+            if (first_time_step) then
+!           no bright banding, to be consistent with hydrometeor retrieval in GSI
+                allow_wet_snow = .false.
+            else
+                allow_wet_snow = .true.
+            endif
+            allow_wet_graupel = .false.
+        else
+            do_vt_dBZ = .false.
+            allow_wet_snow = .true.
+            allow_wet_graupel = .false.
+        endif
+
+        do k = kts, kte
+            dBZ(k) = -35.0
+        enddo
+
+!+---+-----------------------------------------------------------------+
+!..Put column of data into local arrays.
+!+---+-----------------------------------------------------------------+
+        do k = kts, kte
+            temp(k) = t1d(k)
+            qv(k) = MAX(1.E-10, qv1d(k))
+            pres(k) = p1d(k)
+            rho(k) = 0.622*pres(k)/(R*temp(k)*(qv(k)+0.622))
+            rhof(k) = SQRT(RHO_NOT/rho(k))
+            rc(k) = MAX(R1, qc1d(k)*rho(k))
+            if (qr1d(k) .gt. R1) then
+                rr(k) = qr1d(k)*rho(k)
+                nr(k) = MAX(R2, nr1d(k)*rho(k))
+                lamr = (am_r*crg(3)*org2*nr(k)/rr(k))**obmr
+                ilamr(k) = 1./lamr
+                N0_r(k) = nr(k)*org2*lamr**cre(2)
+                mvd_r(k) = (3.0 + mu_r + 0.672) * ilamr(k)
+                L_qr(k) = .true.
+            else
+                rr(k) = R1
+                nr(k) = R1
+                mvd_r(k) = 50.E-6
+                L_qr(k) = .false.
+            endif
+            if (qs1d(k) .gt. R2) then
+                rs(k) = qs1d(k)*rho(k)
+                L_qs(k) = .true.
+            else
+                rs(k) = R1
+                L_qs(k) = .false.
+            endif
+            if (qg1d(k) .gt. R2) then
+                rg(k) = qg1d(k)*rho(k)
+                ng(k) = MAX(R2, ng1d(k)*rho(k))
+                rb(k) = MAX(qg1d(k)/rho_g(NRHG), qb1d(k))
+                rb(k) = MIN(qg1d(k)/rho_g(1), rb(k))
+                idx_bg(k) = MAX(1,MIN(NINT(qg1d(k)/rb(k) *0.01)+1,NRHG))
+                if (.not. is_hail_aware) idx_bg(k) = idx_bg1
+                L_qg(k) = .true.
+            else
+                rg(k) = R1
+                ng(k) = R2
+                idx_bg(k) = idx_bg1
+                L_qg(k) = .false.
+            endif
+        enddo
+
+!+---+-----------------------------------------------------------------+
+!..Calculate y-intercept, slope, and useful moments for snow.
+!+---+-----------------------------------------------------------------+
+        do k = kts, kte
+            smo2(k) = 0.
+            smob(k) = 0.
+            smoc(k) = 0.
+            smoz(k) = 0.
+        enddo
+        if (ANY(L_qs .eqv. .true.)) then
             do k = kts, kte
-                dBZ(k) = -35.0
-            enddo
-    
-    !+---+-----------------------------------------------------------------+
-    !..Put column of data into local arrays.
-    !+---+-----------------------------------------------------------------+
-            do k = kts, kte
-                temp(k) = t1d(k)
-                qv(k) = MAX(1.E-10, qv1d(k))
-                pres(k) = p1d(k)
-                rho(k) = 0.622*pres(k)/(R*temp(k)*(qv(k)+0.622))
-                rhof(k) = SQRT(RHO_NOT/rho(k))
-                rc(k) = MAX(R1, qc1d(k)*rho(k))
-                if (qr1d(k) .gt. R1) then
-                    rr(k) = qr1d(k)*rho(k)
-                    nr(k) = MAX(R2, nr1d(k)*rho(k))
-                    lamr = (am_r*crg(3)*org2*nr(k)/rr(k))**obmr
-                    ilamr(k) = 1./lamr
-                    N0_r(k) = nr(k)*org2*lamr**cre(2)
-                    mvd_r(k) = (3.0 + mu_r + 0.672) * ilamr(k)
-                    L_qr(k) = .true.
-                else
-                    rr(k) = R1
-                    nr(k) = R1
-                    mvd_r(k) = 50.E-6
-                    L_qr(k) = .false.
-                endif
-                if (qs1d(k) .gt. R2) then
-                    rs(k) = qs1d(k)*rho(k)
-                    L_qs(k) = .true.
-                else
-                    rs(k) = R1
-                    L_qs(k) = .false.
-                endif
-                if (qg1d(k) .gt. R2) then
-                    rg(k) = qg1d(k)*rho(k)
-                    L_qg(k) = .true.
-                else
-                    rg(k) = R1
-                    L_qg(k) = .false.
-                endif
-            enddo
-    
-    !+---+-----------------------------------------------------------------+
-    !..Calculate y-intercept, slope, and useful moments for snow.
-    !+---+-----------------------------------------------------------------+
-            do k = kts, kte
+                if (.not. L_qs(k)) CYCLE
                 tc0 = MIN(-0.1, temp(k)-273.15)
                 smob(k) = rs(k)*oams
-    
-    !..All other moments based on reference, 2nd moment.  If bm_s.ne.2,
-    !.. then we must compute actual 2nd moment and use as reference.
+
+!..All other moments based on reference, 2nd moment.  If bm_s.ne.2,
+!.. then we must compute actual 2nd moment and use as reference.
                 if (bm_s.gt.(2.0-1.e-3) .and. bm_s.lt.(2.0+1.e-3)) then
                     smo2(k) = smob(k)
                 else
@@ -237,8 +275,8 @@ contains
                     &         + sb(10)*bm_s*bm_s*bm_s
                     smo2(k) = (smob(k)/a_)**(1./b_)
                 endif
-    
-    !..Calculate bm_s+1 (th) moment.  Useful for diameter calcs.
+
+!..Calculate bm_s+1 (th) moment.  Useful for diameter calcs.
                 loga_ = sa(1) + sa(2)*tc0 + sa(3)*cse(1) &
                 &         + sa(4)*tc0*cse(1) + sa(5)*tc0*tc0 &
                 &         + sa(6)*cse(1)*cse(1) + sa(7)*tc0*tc0*cse(1) &
@@ -250,8 +288,8 @@ contains
                 &        + sb(7)*tc0*tc0*cse(1) + sb(8)*tc0*cse(1)*cse(1) &
                 &        + sb(9)*tc0*tc0*tc0 + sb(10)*cse(1)*cse(1)*cse(1)
                 smoc(k) = a_ * smo2(k)**b_
-    
-    !..Calculate bm_s*2 (th) moment.  Useful for reflectivity.
+
+!..Calculate bm_s*2 (th) moment.  Useful for reflectivity.
                 loga_ = sa(1) + sa(2)*tc0 + sa(3)*cse(3) &
                 &         + sa(4)*tc0*cse(3) + sa(5)*tc0*tc0 &
                 &         + sa(6)*cse(3)*cse(3) + sa(7)*tc0*tc0*cse(3) &
@@ -264,172 +302,357 @@ contains
                 &        + sb(9)*tc0*tc0*tc0 + sb(10)*cse(3)*cse(3)*cse(3)
                 smoz(k) = a_ * smo2(k)**b_
             enddo
-    
-    !+---+-----------------------------------------------------------------+
-    !..Calculate y-intercept, slope values for graupel.
-    !+---+-----------------------------------------------------------------+
-    
-            N0_min = gonv_max
-            k_0 = kts
+        endif
+
+!+---+-----------------------------------------------------------------+
+!..Calculate y-intercept, slope values for graupel.
+!+---+-----------------------------------------------------------------+
+        if (ANY(L_qg .eqv. .true.)) then
             do k = kte, kts, -1
-                if (temp(k).ge.270.65) k_0 = MAX(k_0, k)
+               lamg = (am_g(idx_bg(k))*cgg(3,1)*ogg2*ng(k)/rg(k))**obmg
+               ilamg(k) = 1./lamg
+               N0_g(k) = ng(k)*ogg2*lamg**cge(2,1)
             enddo
-            do k = kte, kts, -1
-                if (k.gt.k_0 .and. L_qr(k) .and. mvd_r(k).gt.100.E-6) then
-                    xslw1 = 4.01 + alog10(mvd_r(k))
-                else
-                    xslw1 = 0.01
-                endif
-                ygra1 = 4.31 + alog10(max(5.E-5, rg(k)))
-                zans1 = 3.1 + (100./(300.*xslw1*ygra1/(10./xslw1+1.+0.25*ygra1)+30.+10.*ygra1))
-                N0_exp = 10.**(zans1)
-                N0_exp = MAX(DBLE(gonv_min), MIN(N0_exp, DBLE(gonv_max)))
-                N0_min = MIN(N0_exp, N0_min)
-                N0_exp = N0_min
-                lam_exp = (N0_exp*am_g(6)*cgg(1,6)/rg(k))**oge1
-                lamg = lam_exp * (cgg(3,6)*ogg2*ogg1)**obmg
-                ilamg(k) = 1./lamg
-                N0_g(k) = N0_exp/(cgg(2,6)*lam_exp) * lamg**cge(2,6)
-            enddo
-    
-    !+---+-----------------------------------------------------------------+
-    !..Locate K-level of start of melting (k_0 is level above).
-    !+---+-----------------------------------------------------------------+
-            melti = .false.
-            k_0 = kts
-            do k = kte-1, kts, -1
-                if ( (temp(k).gt.273.15) .and. L_qr(k)                         &
+        else
+            ilamg(:) = 0.
+            N0_g(:) = 0.
+        endif
+
+!+---+-----------------------------------------------------------------+
+!..Locate K-level of start of melting (k_0 is level above).
+!+---+-----------------------------------------------------------------+
+        k_0 = kts
+        if (present(melti)) then
+        if ( melti ) then
+            K_LOOP:do k = kte-1, kts, -1
+                if ((temp(k).gt.273.15) .and. L_qr(k)                         &
                 &                            .and. (L_qs(k+1).or.L_qg(k+1)) ) then
                     k_0 = MAX(k+1, k_0)
-                    melti=.true.
-                    goto 195
+                    EXIT K_LOOP
                 endif
+            enddo K_LOOP
+         endif
+         endif
+!+---+-----------------------------------------------------------------+
+!..Assume Rayleigh approximation at 10 cm wavelength. Rain (all temps)
+!.. and non-water-coated snow and graupel when below freezing are
+!.. simple. Integrations of m(D)*m(D)*N(D)*dD.
+!+---+-----------------------------------------------------------------+
+
+        do k = kts, kte
+            ze_rain(k) = 1.e-22
+            ze_snow(k) = 1.e-22
+            ze_graupel(k) = 1.e-22
+            if (L_qr(k)) ze_rain(k) = N0_r(k)*crg(4)*ilamr(k)**cre(4)
+            if (L_qs(k)) ze_snow(k) = (0.176/0.93) * (6.0/PI)*(6.0/PI)     &
+            &                           * (am_s/900.0)*(am_s/900.0)*smoz(k)
+            if (L_qg(k)) ze_graupel(k) = (0.176/0.93) * (6.0/PI)*(6.0/PI)  &
+            &               * (am_g(idx_bg(k))/900.0)*(am_g(idx_bg(k))/900.0)  &
+            &               * N0_g(k)*cgg(4,1)*ilamg(k)**cge(4,1)
+        enddo
+
+!+---+-----------------------------------------------------------------+
+!..Special case of melting ice (snow/graupel) particles.  Assume the
+!.. ice is surrounded by the liquid water.  Fraction of meltwater is
+!.. extremely simple based on amount found above the melting level.
+!.. Uses code from Uli Blahak (rayleigh_soak_wetgraupel and supporting
+!.. routines).
+!+---+-----------------------------------------------------------------+
+        if (present(melti)) then
+        if (.not. iiwarm .and. melti .and. k_0.ge.2) then
+            do k = k_0-1, kts, -1
+
+!..Reflectivity contributed by melting snow
+                if (allow_wet_snow .and. L_qs(k) .and. L_qs(k_0) ) then
+                    SR = MAX(0.01, MIN(1.0 - rs(k)/(rs(k) + rr(k)), 0.99))
+                    fmelt_s = DBLE(SR*SR)
+                    eta = 0.d0
+                    oM3 = 1./smoc(k)
+                    M0 = (smob(k)*oM3)
+                    Mrat = smob(k)*M0*M0*M0
+                    slam1 = M0 * Lam0
+                    slam2 = M0 * Lam1
+                    do n = 1, nrbins
+                        x = am_s * xxDs(n)**bm_s
+                        call rayleigh_soak_wetgraupel (x, DBLE(ocms), DBLE(obms), &
+                        &              fmelt_s, melt_outside_s, m_w_0, m_i_0, lamda_radar, &
+                        &              CBACK, mixingrulestring_s, matrixstring_s,          &
+                        &              inclusionstring_s, hoststring_s,                    &
+                        &              hostmatrixstring_s, hostinclusionstring_s)
+                        f_d = Mrat*(Kap0*DEXP(-slam1*xxDs(n))                     &
+                        &              + Kap1*(M0*xxDs(n))**mu_s * DEXP(-slam2*xxDs(n)))
+                        eta = eta + f_d * CBACK * simpson(n) * xdts(n)
+                    enddo
+                    ze_snow(k) = SNGL(lamda4 / (pi5 * K_w) * eta)
+                endif
+
+!..Reflectivity contributed by melting graupel
+                if (allow_wet_graupel .and. L_qg(k) .and. L_qg(k_0) ) then
+                    SR = MAX(0.01, MIN(1.0 - rg(k)/(rg(k) + rr(k)), 0.99))
+                    fmelt_g = DBLE(SR*SR)
+                    eta = 0.d0
+                    lamg = 1./ilamg(k)
+                    do n = 1, nrbins
+                        x = am_g(idx_bg(k)) * xxDg(n)**bm_g
+                        call rayleigh_soak_wetgraupel (x, DBLE(ocmg(idx_bg(k))), DBLE(obmg), &
+                        &              fmelt_g, melt_outside_g, m_w_0, m_i_0, lamda_radar, &
+                        &              CBACK, mixingrulestring_g, matrixstring_g,          &
+                        &              inclusionstring_g, hoststring_g,                    &
+                        &              hostmatrixstring_g, hostinclusionstring_g)
+                        f_d = N0_g(k)*xxDg(n)**mu_g * DEXP(-lamg*xxDg(n))
+                        eta = eta + f_d * CBACK * simpson(n) * xdtg(n)
+                    enddo
+                    ze_graupel(k) = SNGL(lamda4 / (pi5 * K_w) * eta)
+                endif
+
             enddo
-    195     continue
-    
-    !+---+-----------------------------------------------------------------+
-    !..Assume Rayleigh approximation at 10 cm wavelength. Rain (all temps)
-    !.. and non-water-coated snow and graupel when below freezing are
-    !.. simple. Integrations of m(D)*m(D)*N(D)*dD.
-    !+---+-----------------------------------------------------------------+
-    
-            do k = kts, kte
-                ze_rain(k) = 1.e-22
-                ze_snow(k) = 1.e-22
-                ze_graupel(k) = 1.e-22
-                if (L_qr(k)) ze_rain(k) = N0_r(k)*crg(4)*ilamr(k)**cre(4)
-                if (L_qs(k)) ze_snow(k) = (0.176/0.93) * (6.0/PI)*(6.0/PI)     &
-                &                           * (am_s/900.0)*(am_s/900.0)*smoz(k)
-                if (L_qg(k)) ze_graupel(k) = (0.176/0.93) * (6.0/PI)*(6.0/PI)  &
-                &                              * (am_g(6)/900.0)*(am_g(6)/900.0)         &
-                &                              * N0_g(k)*cgg(4,6)*ilamg(k)**cge(4,6)
-            enddo
-    
-    !+---+-----------------------------------------------------------------+
-    !..Special case of melting ice (snow/graupel) particles.  Assume the
-    !.. ice is surrounded by the liquid water.  Fraction of meltwater is
-    !.. extremely simple based on amount found above the melting level.
-    !.. Uses code from Uli Blahak (rayleigh_soak_wetgraupel and supporting
-    !.. routines).
-    !+---+-----------------------------------------------------------------+
-    
-            if (.not. iiwarm .and. melti .and. k_0.ge.2) then
-                do k = k_0-1, kts, -1
-    
-    !..Reflectivity contributed by melting snow
-    ! if (L_qs(k) .and. L_qs(k_0) ) then
-    ! fmelt_s = MAX(0.05d0, MIN(1.0d0-rs(k)/rs(k_0), 0.99d0))
-    ! eta = 0.d0
-    ! oM3 = 1./smoc(k)
-    ! M0 = (smob(k)*oM3)
-    ! Mrat = smob(k)*M0*M0*M0
-    ! slam1 = M0 * Lam0
-    ! slam2 = M0 * Lam1
-    ! do n = 1, nrbins
-    ! x = am_s * xxDs(n)**bm_s
-    ! call rayleigh_soak_wetgraupel (x, DBLE(ocms), DBLE(obms), &
-    ! &              fmelt_s, melt_outside_s, m_w_0, m_i_0, lamda_radar, &
-    ! &              CBACK, mixingrulestring_s, matrixstring_s,          &
-    ! &              inclusionstring_s, hoststring_s,                    &
-    ! &              hostmatrixstring_s, hostinclusionstring_s)
-    ! f_d = Mrat*(Kap0*DEXP(-slam1*xxDs(n))                     &
-    ! &              + Kap1*(M0*xxDs(n))**mu_s * DEXP(-slam2*xxDs(n)))
-    ! eta = eta + f_d * CBACK * simpson(n) * xdts(n)
-    ! enddo
-    ! ze_snow(k) = SNGL(lamda4 / (pi5 * K_w) * eta)
-    ! endif
-    
-    !..Reflectivity contributed by melting graupel
-    
-    ! if (L_qg(k) .and. L_qg(k_0) ) then
-    ! fmelt_g = MAX(0.05d0, MIN(1.0d0-rg(k)/rg(k_0), 0.99d0))
-    ! eta = 0.d0
-    ! lamg = 1./ilamg(k)
-    ! do n = 1, nrbins
-    ! x = am_g * xxDg(n)**bm_g
-    ! call rayleigh_soak_wetgraupel (x, DBLE(ocmg), DBLE(obmg), &
-    ! &              fmelt_g, melt_outside_g, m_w_0, m_i_0, lamda_radar, &
-    ! &              CBACK, mixingrulestring_g, matrixstring_g,          &
-    ! &              inclusionstring_g, hoststring_g,                    &
-    ! &              hostmatrixstring_g, hostinclusionstring_g)
-    ! f_d = N0_g(k)*xxDg(n)**mu_g * DEXP(-lamg*xxDg(n))
-    ! eta = eta + f_d * CBACK * simpson(n) * xdtg(n)
-    ! enddo
-    ! ze_graupel(k) = SNGL(lamda4 / (pi5 * K_w) * eta)
-    ! endif
-    
-                enddo
-            endif
-    
+        endif
+        endif
+        
+        do k = kte, kts, -1
+            dBZ(k) = 10.*log10((ze_rain(k)+ze_snow(k)+ze_graupel(k))*1.d18)
+        enddo
+
+!..Reflectivity-weighted terminal velocity (snow, rain, graupel, mix).
+        if (do_vt_dBZ) then
             do k = kte, kts, -1
-                dBZ(k) = 10.*log10((ze_rain(k)+ze_snow(k)+ze_graupel(k))*1.d18)
+                vt_dBZ(k) = 1.E-3
+                if (rs(k).gt.R2) then
+                    Mrat = smob(k) / smoc(k)
+                    ils1 = 1./(Mrat*Lam0 + fv_s)
+                    ils2 = 1./(Mrat*Lam1 + fv_s)
+                    t1_vts = Kap0*csg(5)*ils1**cse(5)
+                    t2_vts = Kap1*Mrat**mu_s*csg(11)*ils2**cse(11)
+                    ils1 = 1./(Mrat*Lam0)
+                    ils2 = 1./(Mrat*Lam1)
+                    t3_vts = Kap0*csg(6)*ils1**cse(6)
+                    t4_vts = Kap1*Mrat**mu_s*csg(12)*ils2**cse(12)
+                    vts_dbz_wt = rhof(k)*av_s * (t1_vts+t2_vts)/(t3_vts+t4_vts)
+                    if (temp(k).ge.273.15 .and. temp(k).lt.275.15) then
+                        vts_dbz_wt = vts_dbz_wt*1.5
+                    elseif (temp(k).ge.275.15) then
+                        vts_dbz_wt = vts_dbz_wt*2.0
+                    endif
+                else
+                    vts_dbz_wt = 1.E-3
+                endif
+
+                if (rr(k).gt.R1) then
+                    lamr = 1./ilamr(k)
+                    vtr_dbz_wt = rhof(k)*av_r*crg(13)*(lamr+fv_r)**(-cre(13))      &
+                        / (crg(4)*lamr**(-cre(4)))
+                else
+                    vtr_dbz_wt = 1.E-3
+                endif
+
+                if (rg(k).gt.R2) then
+                    lamg = 1./ilamg(k)
+                    vtg_dbz_wt = rhof(k)*av_g(idx_bg(k))*cgg(5,idx_bg(k))*lamg**(-cge(5,idx_bg(k)))               &
+            &               / (cgg(4,1)*lamg**(-cge(4,1)))
+                else
+                    vtg_dbz_wt = 1.E-3
+                endif
+
+                ! if (rg(k).gt.R2) then
+                !     lamg = 1./ilamg(k)
+                !     vtg_dbz_wt = rhof(k)*av_g*cgg(5)*lamg**(-cge(5))               &
+                !         / (cgg(4)*lamg**(-cge(4)))
+                ! else
+                !     vtg_dbz_wt = 1.E-3
+                ! endif
+
+                vt_dBZ(k) = (vts_dbz_wt*ze_snow(k) + vtr_dbz_wt*ze_rain(k)      &
+                    + vtg_dbz_wt*ze_graupel(k))                        &
+                    / (ze_rain(k)+ze_snow(k)+ze_graupel(k))
             enddo
-    
-    
-    !..Reflectivity-weighted terminal velocity (snow, rain, graupel, mix).
-    !     do k = kte, kts, -1
-    !        vt_dBZ(k) = 1.E-3
-    !        if (rs(k).gt.R2) then
-    !         Mrat = smob(k) / smoc(k)
-    !         ils1 = 1./(Mrat*Lam0 + fv_s)
-    !         ils2 = 1./(Mrat*Lam1 + fv_s)
-    !         t1_vts = Kap0*csg(5)*ils1**cse(5)
-    !         t2_vts = Kap1*Mrat**mu_s*csg(11)*ils2**cse(11)
-    !         ils1 = 1./(Mrat*Lam0)
-    !         ils2 = 1./(Mrat*Lam1)
-    !         t3_vts = Kap0*csg(6)*ils1**cse(6)
-    !         t4_vts = Kap1*Mrat**mu_s*csg(12)*ils2**cse(12)
-    !         vts_dbz_wt = rhof(k)*av_s * (t1_vts+t2_vts)/(t3_vts+t4_vts)
-    !         if (temp(k).ge.273.15 .and. temp(k).lt.275.15) then
-    !            vts_dbz_wt = vts_dbz_wt*1.5
-    !         elseif (temp(k).ge.275.15) then
-    !            vts_dbz_wt = vts_dbz_wt*2.0
-    !         endif
-    !        else
-    !         vts_dbz_wt = 1.E-3
-    !        endif
-    
-    !        if (rr(k).gt.R1) then
-    !         lamr = 1./ilamr(k)
-    !         vtr_dbz_wt = rhof(k)*av_r*crg(13)*(lamr+fv_r)**(-cre(13))      &
-    !    &               / (crg(4)*lamr**(-cre(4)))
-    !        else
-    !         vtr_dbz_wt = 1.E-3
-    !        endif
-    
-    !        if (rg(k).gt.R2) then
-    !         lamg = 1./ilamg(k)
-    !         vtg_dbz_wt = rhof(k)*av_g*cgg(5)*lamg**(-cge(5))               &
-    !    &               / (cgg(4)*lamg**(-cge(4)))
-    !        else
-    !         vtg_dbz_wt = 1.E-3
-    !        endif
-    
-    !        vt_dBZ(k) = (vts_dbz_wt*ze_snow(k) + vtr_dbz_wt*ze_rain(k)      &
-    !    &                + vtg_dbz_wt*ze_graupel(k))                        &
-    !    &                / (ze_rain(k)+ze_snow(k)+ze_graupel(k))
-    !     enddo
-    
-          end subroutine calc_refl10cm
+        endif
+
+    end subroutine calc_refl10cm
+!
+
+!>\ingroup aathompson
+!!Table of lookup values of radiative effective radius of ice crystals
+!! as a function of Temperature from -94C to 0C.  Taken from WRF RRTMG
+!! radiation code where it is attributed to Jon Egill Kristjansson
+!! and coauthors.
+      elemental real function make_IceNumber (Q_ice, temp)
+
+      !IMPLICIT NONE
+      REAL, PARAMETER:: Ice_density = 890.0
+      REAL, PARAMETER:: PI = 3.1415926536
+      real, intent(in):: Q_ice, temp
+      integer idx_rei
+      real corr, reice, deice
+      double precision lambda
+
+!+---+-----------------------------------------------------------------+ 
+!..Table of lookup values of radiative effective radius of ice crystals
+!.. as a function of Temperature from -94C to 0C.  Taken from WRF RRTMG
+!.. radiation code where it is attributed to Jon Egill Kristjansson
+!.. and coauthors.
+!+---+-----------------------------------------------------------------+ 
+
+      !real retab(95)
+      !data retab /                                                      &
+      !   5.92779, 6.26422, 6.61973, 6.99539, 7.39234,                   &
+      !   7.81177, 8.25496, 8.72323, 9.21800, 9.74075, 10.2930,          &
+      !   10.8765, 11.4929, 12.1440, 12.8317, 13.5581, 14.2319,          &
+      !   15.0351, 15.8799, 16.7674, 17.6986, 18.6744, 19.6955,          &
+      !   20.7623, 21.8757, 23.0364, 24.2452, 25.5034, 26.8125,          &
+      !   27.7895, 28.6450, 29.4167, 30.1088, 30.7306, 31.2943,          &
+      !   31.8151, 32.3077, 32.7870, 33.2657, 33.7540, 34.2601,          &
+      !   34.7892, 35.3442, 35.9255, 36.5316, 37.1602, 37.8078,          &
+      !   38.4720, 39.1508, 39.8442, 40.5552, 41.2912, 42.0635,          &
+      !   42.8876, 43.7863, 44.7853, 45.9170, 47.2165, 48.7221,          &
+      !   50.4710, 52.4980, 54.8315, 57.4898, 60.4785, 63.7898,          &
+      !   65.5604, 71.2885, 75.4113, 79.7368, 84.2351, 88.8833,          &
+      !   93.6658, 98.5739, 103.603, 108.752, 114.025, 119.424,          &
+      !   124.954, 130.630, 136.457, 142.446, 148.608, 154.956,          &
+      !   161.503, 168.262, 175.248, 182.473, 189.952, 197.699,          &
+      !   205.728, 214.055, 222.694, 231.661, 240.971, 250.639/
+      real, dimension(95), parameter:: retab = (/                       &
+         5.92779, 6.26422, 6.61973, 6.99539, 7.39234,                   &
+         7.81177, 8.25496, 8.72323, 9.21800, 9.74075, 10.2930,          &
+         10.8765, 11.4929, 12.1440, 12.8317, 13.5581, 14.2319,          &
+         15.0351, 15.8799, 16.7674, 17.6986, 18.6744, 19.6955,          &
+         20.7623, 21.8757, 23.0364, 24.2452, 25.5034, 26.8125,          &
+         27.7895, 28.6450, 29.4167, 30.1088, 30.7306, 31.2943,          &
+         31.8151, 32.3077, 32.7870, 33.2657, 33.7540, 34.2601,          &
+         34.7892, 35.3442, 35.9255, 36.5316, 37.1602, 37.8078,          &
+         38.4720, 39.1508, 39.8442, 40.5552, 41.2912, 42.0635,          &
+         42.8876, 43.7863, 44.7853, 45.9170, 47.2165, 48.7221,          &
+         50.4710, 52.4980, 54.8315, 57.4898, 60.4785, 63.7898,          &
+         65.5604, 71.2885, 75.4113, 79.7368, 84.2351, 88.8833,          &
+         93.6658, 98.5739, 103.603, 108.752, 114.025, 119.424,          &
+         124.954, 130.630, 136.457, 142.446, 148.608, 154.956,          &
+         161.503, 168.262, 175.248, 182.473, 189.952, 197.699,          &
+         205.728, 214.055, 222.694, 231.661, 240.971, 250.639 /)
+
+      if (Q_ice == 0) then
+         make_IceNumber = 0
+         return
+      end if
+
+!+---+-----------------------------------------------------------------+ 
+!..From the model 3D temperature field, subtract 179K for which
+!.. index value of retab as a start.  Value of corr is for
+!.. interpolating between neighboring values in the table.
+!+---+-----------------------------------------------------------------+ 
+
+      idx_rei = int(temp-179.)
+      idx_rei = min(max(idx_rei,1),94)
+      corr = temp - int(temp)
+      reice = retab(idx_rei)*(1.-corr) + retab(idx_rei+1)*corr
+      deice = 2.*reice * 1.E-6
+
+!+---+-----------------------------------------------------------------+ 
+!..Now we have the final radiative effective size of ice (as function
+!.. of temperature only).  This size represents 3rd moment divided by
+!.. second moment of the ice size distribution, so we can compute a
+!.. number concentration from the mean size and mass mixing ratio.
+!.. The mean (radiative effective) diameter is 3./Slope for an inverse
+!.. exponential size distribution.  So, starting with slope, work
+!.. backwords to get number concentration.
+!+---+-----------------------------------------------------------------+ 
+
+      lambda = 3.0 / deice
+      make_IceNumber = Q_ice * lambda*lambda*lambda / (PI*Ice_density)
+
+!+---+-----------------------------------------------------------------+ 
+!..Example1: Common ice size coming from Thompson scheme is about 30 microns.
+!.. An example ice mixing ratio could be 0.001 g/kg for a temperature of -50C.
+!.. Remember to convert both into MKS units.  This gives N_ice=357652 per kg.
+!..Example2: Lower in atmosphere at T=-10C matching ~162 microns in retab,
+!.. and assuming we have 0.1 g/kg mixing ratio, then N_ice=28122 per kg, 
+!.. which is 28 crystals per liter of air if the air density is 1.0.
+!+---+-----------------------------------------------------------------+ 
+
+      return
+      end function make_IceNumber
+
+!+---+-----------------------------------------------------------------+ 
+!+---+-----------------------------------------------------------------+ 
+
+!>\ingroup aathompson
+!!
+      elemental real function make_DropletNumber (Q_cloud, qnwfa)
+
+      !IMPLICIT NONE
+
+      real, intent(in):: Q_cloud, qnwfa
+
+      real, parameter:: PI = 3.1415926536
+      real, parameter:: am_r = PI*1000./6.
+      real, dimension(15), parameter:: g_ratio = (/24,60,120,210,336,   &
+     &                504,720,990,1320,1716,2184,2730,3360,4080,4896/)
+      double precision:: lambda, qnc
+      real:: q_nwfa, x1, xDc
+      integer:: nu_c
+
+      if (Q_cloud == 0) then
+         make_DropletNumber = 0
+         return
+      end if
+
+!+---+
+
+      q_nwfa = MAX(99.E6, MIN(qnwfa,5.E10))
+      nu_c = MAX(2, MIN(NINT(2.5E10/q_nwfa), 15))
+
+      x1 = MAX(1., MIN(q_nwfa*1.E-9, 10.)) - 1.
+      xDc = (30. - x1*20./9.) * 1.E-6
+
+      lambda = (4.0D0 + nu_c) / xDc
+      qnc = Q_cloud / g_ratio(nu_c) * lambda*lambda*lambda / am_r
+      make_DropletNumber = SNGL(qnc)
+
+      return
+      end function make_DropletNumber
+
+!+---+-----------------------------------------------------------------+ 
+!+---+-----------------------------------------------------------------+ 
+
+!>\ingroup aathompson
+!!
+      elemental real function make_RainNumber (Q_rain, temp)
+
+      IMPLICIT NONE
+
+      real, intent(in):: Q_rain, temp
+      double precision:: lambda, N0, qnr
+      real, parameter:: PI = 3.1415926536
+      real, parameter:: am_r = PI*1000./6.
+
+      if (Q_rain == 0) then
+         make_RainNumber = 0
+         return
+      end if
+
+      !+---+-----------------------------------------------------------------+ 
+      !.. Not thrilled with it, but set Y-intercept parameter to Marshal-Palmer value
+      !.. that basically assumes melting snow becomes typical rain. However, for
+      !.. -2C < T < 0C, make linear increase in exponent to attempt to keep
+      !.. supercooled collision-coalescence (warm-rain) similar to drizzle rather
+      !.. than bigger rain drops.  While this could also exist at T>0C, it is
+      !.. more difficult to assume it directly from having mass and not number.
+      !+---+-----------------------------------------------------------------+ 
+
+      N0 = 8.E6
+
+      if (temp .le. 271.15) then
+         N0 = 8.E8
+      elseif (temp .gt. 271.15 .and. temp.lt.273.15) then
+         N0 = 8. * 10**(279.15-temp)
+      endif
+
+      lambda = SQRT(SQRT(N0*am_r*6.0/Q_rain))
+      qnr = Q_rain / 6.0 * lambda*lambda*lambda / am_r
+      make_RainNumber = SNGL(qnr)
+
+      return
+      end function make_RainNumber
+
+!+---+-----------------------------------------------------------------+ 
+!+---+-----------------------------------------------------------------+
           
         end module module_mp_thompson_utils
