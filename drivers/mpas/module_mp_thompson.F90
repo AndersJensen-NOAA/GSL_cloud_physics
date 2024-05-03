@@ -41,14 +41,17 @@ contains
         integer :: mp_unit
         character(len=132) :: message
 
-        configs%hail_aware = hail_aware_flag
-        write(message, '(L1)') configs%hail_aware
-        call physics_message('--- thompson_init() called with hail_aware_flag = ' // trim(message))
+        ! If lookup tables are already built
+        if (l_mp_tables) then
+           configs%hail_aware = hail_aware_flag
+           write(message, '(L1)') configs%hail_aware
+           call physics_message('--- thompson_init() called with hail_aware_flag = ' // trim(message))
 
-        if (present(aerosol_aware_flag)) then
-           configs%aerosol_aware = aerosol_aware_flag
-           write(message, '(L1)') configs%aerosol_aware
-           call physics_message('--- thompson_init() called with aerosol_aware_flag = ' // trim(message))
+           if (present(aerosol_aware_flag)) then
+              configs%aerosol_aware = aerosol_aware_flag
+              write(message, '(L1)') configs%aerosol_aware
+              call physics_message('--- thompson_init() called with aerosol_aware_flag = ' // trim(message))
+           endif
         endif
         
 ! Allocate space for lookup tables (J. Michalakes 2009Jun08).
