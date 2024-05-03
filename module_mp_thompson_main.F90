@@ -1,3 +1,5 @@
+! 1D Thompson microphysics scheme
+!=================================================================================================================
 module module_mp_thompson_main
 
     use module_mp_thompson_params
@@ -12,18 +14,13 @@ module module_mp_thompson_main
 
 contains
 !=================================================================================================================
-! This subroutine computes the moisture tendencies of water vapor,
-! cloud droplets, rain, cloud ice (pristine), snow, and graupel.
-! Previously this code was based on Reisner et al (1998), but few of
-! those pieces remain.  A complete description is now found in
-! Thompson et al. (2004, 2008), Thompson and Eidhammer (2014),
+! This subroutine computes the moisture tendencies of water vapor, cloud droplets, rain, cloud ice (pristine),
+! snow, and graupel. Previously this code was based on Reisner et al (1998), but few of those pieces remain.
+! A complete description is now found in Thompson et al. (2004, 2008), Thompson and Eidhammer (2014),
 ! and Jensen et al. (2023).
-!+---+-----------------------------------------------------------------+
-!
-    subroutine mp_thompson (qv1d, qc1d, qi1d, qr1d, qs1d, qg1d, qb1d, &
-        ni1d, nr1d, nc1d, ng1d, nwfa1d, nifa1d, &
-        t1d, p1d, w1d, dzq, &
-        pptrain, pptsnow, pptgraul, pptice, &
+
+    subroutine mp_thompson_main(qv1d, qc1d, qi1d, qr1d, qs1d, qg1d, qb1d, ni1d, nr1d, nc1d, ng1d, & 
+        nwfa1d, nifa1d, t1d, p1d, w1d, dzq, pptrain, pptsnow, pptgraul, pptice, &
 #if defined(mpas)
         rainprod, evapprod, &
 #endif
@@ -46,7 +43,8 @@ contains
         qgten1, qiten1, niten1, nrten1, ncten1, qcten1, &
         pfil1, pfll1, lsml, &
 #endif
-        kts, kte, dt, ii, jj)
+        kts, kte, dt, ii, jj, &
+        configs)
 
 #if defined(CCPP) && defined (MPI)
         use mpi
@@ -55,12 +53,13 @@ contains
 
 ! Subroutine arguments
         integer, intent(in) :: kts, kte, ii, jj
-        real(wp), dimension(kts:kte), intent(inout) :: &
-            qv1d, qc1d, qi1d, qr1d, qs1d, qg1d, qb1d, &
+        real(wp), dimension(kts:kte), intent(inout) :: qv1d, qc1d, qi1d, qr1d, qs1d, qg1d, qb1d, &
             ni1d, nr1d, nc1d, ng1d, nwfa1d, nifa1d, t1d
         real(wp), dimension(kts:kte), intent(in) :: p1d, w1d, dzq
         real(wp), intent(inout) :: pptrain, pptsnow, pptgraul, pptice
         real(wp), intent(in) :: dt
+
+        type(config_flags), intent(in) :: configs
 
 #if defined(CCPP)
         real(wp), dimension(kts:kte), intent(out) :: pfil1, pfll1
@@ -90,36 +89,33 @@ contains
         real(wp), dimension(kts:kte), intent(inout) :: rainprod, evapprod
 #endif
 
+!=================================================================================================================
 ! Local variables
-        real(wp), dimension(kts:kte):: tten, qvten, qcten, qiten, qrten, &
+        real(wp), dimension(kts:kte) :: tten, qvten, qcten, qiten, qrten, &
             qsten, qgten, qbten, niten, nrten, ncten, ngten, nwfaten, nifaten
 
-        real(dp), dimension(kts:kte):: prw_vcd
+        real(dp), dimension(kts:kte) :: prw_vcd
 
-        real(dp), dimension(kts:kte):: pnc_wcd, pnc_wau, pnc_rcw, &
-            pnc_scw, pnc_gcw
+        real(dp), dimension(kts:kte) :: pnc_wcd, pnc_wau, pnc_rcw, pnc_scw, pnc_gcw
 
-        real(dp), dimension(kts:kte):: pna_rca, pna_sca, pna_gca, &
-            pnd_rcd, pnd_scd, pnd_gcd
+        real(dp), dimension(kts:kte) :: pna_rca, pna_sca, pna_gca, pnd_rcd, pnd_scd, pnd_gcd
 
-        real(dp), dimension(kts:kte):: prr_wau, prr_rcw, prr_rcs, &
+        real(dp), dimension(kts:kte) :: prr_wau, prr_rcw, prr_rcs, &
             prr_rcg, prr_sml, prr_gml, &
             prr_rci, prv_rev,          &
             pnr_wau, pnr_rcs, pnr_rcg, &
             pnr_rci, pnr_sml, pnr_gml, &
             pnr_rev, pnr_rcr, pnr_rfz
 
-        real(dp), dimension(kts:kte):: pri_inu, pni_inu, pri_ihm, &
+        real(dp), dimension(kts:kte) :: pri_inu, pni_inu, pri_ihm, &
             pni_ihm, pri_wfz, pni_wfz, &
             pri_rfz, pni_rfz, pri_ide, &
             pni_ide, pri_rci, pni_rci, &
             pni_sci, pni_iau, pri_iha, pni_iha
 
-        real(dp), dimension(kts:kte):: prs_iau, prs_sci, prs_rcs, &
-            prs_scw, prs_sde, prs_ihm, &
-            prs_ide
+        real(dp), dimension(kts:kte) :: prs_iau, prs_sci, prs_rcs, prs_scw, prs_sde, prs_ihm, prs_ide
 
-        real(dp), dimension(kts:kte):: prg_scw, prg_rfz, prg_gde, &
+        real(dp), dimension(kts:kte) :: prg_scw, prg_rfz, prg_gde, &
             prg_gcw, prg_rci, prg_rcs, prg_rcg, prg_ihm, &
             png_rcs, png_rcg, png_scw, png_gde, &
             pbg_scw, pbg_rfz, pbg_gcw, pbg_rci, pbg_rcs, pbg_rcg, &
@@ -190,12 +186,10 @@ contains
         character*256 :: mp_debug
         integer :: nu_c
 
-        ! AAJ ADDED
         real(wp), parameter :: min_qv = 1.e-10
         real(dp), parameter :: max_ni = 4999.e3
         real(wp), parameter :: demott_nuc_ssati = 0.25 ! 0.15 for CCPP
-!+---+
-
+!=================================================================================================================
 
         debug_flag = .false.
         if(debug_flag) then
@@ -217,7 +211,7 @@ contains
 !         av_i = av_s * D0s ** (bv_s - bv_i)
 ! #endif
 
-!+---+-----------------------------------------------------------------+
+!=================================================================================================================
 ! Source/sink terms.  First 2 chars: "pr" represents source/sink of
 ! mass while "pn" represents source/sink of number.  Next char is one
 ! of "v" for water vapor, "r" for rain, "i" for cloud ice, "w" for
@@ -230,8 +224,8 @@ contains
 ! positive (except for deposition/sublimation terms which can switch
 ! signs based on super/subsaturation) and are treated as negatives
 ! where necessary in the tendency equations.
-!+---+-----------------------------------------------------------------+
-
+!=================================================================================================================
+! TODO: Put these in derived data type and add initialization subroutine
         do k = kts, kte
             tten(k) = 0.
             qvten(k) = 0.
@@ -407,9 +401,8 @@ contains
             mvd_c(k) = 0.
         enddo
 
-!+---+-----------------------------------------------------------------+
-!..Put column of data into local arrays.
-!+---+-----------------------------------------------------------------+
+!=================================================================================================================
+! Convert microphysics variables to concentrations (kg / m^3 and # / m^3)
         do k = kts, kte
             temp(k) = t1d(k)
             qv(k) = max(min_qv, qv1d(k))
@@ -439,7 +432,7 @@ contains
                 endif
                 nc(k) = min(real(nt_c_max, kind=dp), ccg(1,nu_c)*ocg2(nu_c)*rc(k) / am_r*lamc**bm_r)
                 ! CCPP version has different values of Nt_c for land/ocean
-! AAJ                if (.not. is_aerosol_aware) nc(k) = Nt_c
+                if (.not. configs%aerosol_aware) nc(k) = Nt_c
             else
                 qc1d(k) = 0.0
                 nc1d(k) = 0.0
@@ -547,10 +540,9 @@ contains
                 rb(k) = R1/rho(k)/rho_g(NRHG)
                 L_qg(k) = .false.
             endif
-            if (.not. is_hail_aware) idx_bg(k) = idx_bg1
+            if (.not. configs%hail_aware) idx_bg(k) = idx_bg1
         enddo
 
-!+---+-----------------------------------------------------------------+
 !     if (debug_flag) then
 !      write(mp_debug,*) 'DEBUG-VERBOSE at (i,j) ', ii, ', ', jj
 !      CALL wrf_debug(550, mp_debug)
@@ -560,14 +552,12 @@ contains
 !        CALL wrf_debug(550, mp_debug)
 !      enddo
 !     endif
-!+---+-----------------------------------------------------------------+
 
-!+---+-----------------------------------------------------------------+
+!=================================================================================================================
 ! Derive various thermodynamic variables frequently used.
 ! Saturation vapor pressure (mixing ratio) over liquid/ice comes from
 ! Flatau et al. 1992; enthalpy (latent heat) of vaporization from
 ! Bohren & Albrecht 1998; others from Pruppacher & Klett 1978.
-!+---+-----------------------------------------------------------------+
         do k = kts, kte
             tempc = temp(k) - 273.15
             rhof(k) = sqrt(rho_not/rho(k))
@@ -598,16 +588,12 @@ contains
             tcond(k) = (5.69 + 0.0168*tempc)*1.0e-5 * 418.936
         enddo
 
-!+---+-----------------------------------------------------------------+
+!=================================================================================================================
 !..If no existing hydrometeor species and no chance to initiate ice or
 !.. condense cloud water, just exit quickly!
-!+---+-----------------------------------------------------------------+
-
         if (no_micro) return
 
-!+---+-----------------------------------------------------------------+
 !..Calculate y-intercept, slope, and useful moments for snow.
-!+---+-----------------------------------------------------------------+
         if (.not. iiwarm) then
             do k = kts, kte
                 if (.not. L_qs(k)) CYCLE
@@ -733,7 +719,7 @@ contains
             N0_r(k) = nr(k)*org2*lamr**cre(2)
         enddo
 
-!+---+-----------------------------------------------------------------+
+!=================================================================================================================
 !..Compute warm-rain process terms (except evap done later).
 !+---+-----------------------------------------------------------------+
 
@@ -804,7 +790,7 @@ contains
 
         enddo
 
-!+---+-----------------------------------------------------------------+
+!=================================================================================================================
 !..Compute all frozen hydrometeor species' process terms.
 !+---+-----------------------------------------------------------------+
         if (.not. iiwarm) then
@@ -1383,12 +1369,12 @@ contains
                     endif
 
                 endif
-                if (.not. is_hail_aware) idx_bg(k) = idx_bg1
+!!                if (.not. is_hail_aware) idx_bg(k) = idx_bg1
 
             enddo
         endif
 
-!+---+-----------------------------------------------------------------+
+!=================================================================================================================
 !..Ensure we do not deplete more hydrometeor species than exists.
 !+---+-----------------------------------------------------------------+
         do k = kts, kte
@@ -1489,7 +1475,7 @@ contains
 
         enddo
 
-!+---+-----------------------------------------------------------------+
+!=================================================================================================================
 !..Calculate tendencies of all species but constrain the number of ice
 !.. to reasonable values.
 !+---+-----------------------------------------------------------------+
@@ -1698,7 +1684,7 @@ contains
 
         enddo
 
-!+---+-----------------------------------------------------------------+
+!=================================================================================================================
 !..Update variables for TAU+1 before condensation & sedimention.
 !+---+-----------------------------------------------------------------+
         do k = kts, kte
@@ -1731,7 +1717,7 @@ contains
             if ((qc1d(k) + qcten(k)*dt) .gt. r1) then
                 rc(k) = (qc1d(k) + qcten(k)*dt)*rho(k)
                 nc(k) = max(2., min((nc1d(k)+ncten(k)*dt)*rho(k), nt_c_max))
-!AAJ                if (.not. is_aerosol_aware) nc(k) = nt_c
+                if (.not. configs%aerosol_aware) nc(k) = nt_c
                 L_qc(k) = .true.
             else
                 rc(k) = R1
@@ -1779,7 +1765,7 @@ contains
             endif
         enddo
 
-        if (is_hail_aware) then
+        if (configs%hail_aware) then
             do k = kts, kte
                 if ((qg1d(k) + qgten(k)*dt) .gt. r1) then
                     l_qg(k) = .true.
@@ -1820,7 +1806,7 @@ contains
             enddo
         endif
 
-!+---+-----------------------------------------------------------------+
+!=================================================================================================================
 !..With tendency-updated mixing ratios, recalculate snow moments and
 !.. intercepts/slopes of graupel and rain.
 !+---+-----------------------------------------------------------------+
@@ -1903,7 +1889,7 @@ contains
             N0_r(k) = nr(k)*org2*lamr**cre(2)
         enddo
 
-!+---+-----------------------------------------------------------------+
+!=================================================================================================================
 !..Cloud water condensation and evaporation.  Nucleate cloud droplets
 !.. using explicit CCN aerosols with hygroscopicity like sulfates using
 !.. parcel model lookup table results provided by T. Eidhammer.  Evap
@@ -1927,11 +1913,11 @@ contains
                     prw_vcd(k) = clap*odt
 !+---+-----------------------------------------------------------------+ !  DROPLET NUCLEATION
                     if (clap .gt. eps) then
-! AAJ                  if (is_aerosol_aware) then
-                        xnc = max(2., activ_ncloud(temp(k), w1d(k), nwfa(k)))
-! AAJ                  else
-! AAJ                    xnc = Nt_c
-! AAJ                  endif
+                        if (configs%aerosol_aware) then
+                            xnc = max(2., activ_ncloud(temp(k), w1d(k), nwfa(k)))
+                        else
+                            xnc = Nt_c
+                        endif
                         pnc_wcd(k) = 0.5*(xnc-nc(k) + abs(xnc-nc(k)))*odts*orho
 
 !+---+-----------------------------------------------------------------+ !  EVAPORATION
@@ -1999,7 +1985,7 @@ contains
                 rc(k) = max(r1, (qc1d(k) + dt*qcten(k))*rho(k))
                 if (rc(k).eq.r1) l_qc(k) = .false.
                 nc(k) = max(2., min((nc1d(k)+ncten(k)*dt)*rho(k), nt_c_max))
-! AAJ                if (.NOT. is_aerosol_aware) nc(k) = Nt_c
+                if (.NOT. configs%aerosol_aware) nc(k) = Nt_c
                 qv(k) = max(min_qv, qv1d(k) + DT*qvten(k))
                 temp(k) = t1d(k) + DT*tten(k)
                 rho(k) = RoverRv*pres(k)/(R*temp(k)*(qv(k)+RoverRv))
@@ -2008,7 +1994,7 @@ contains
             endif
         enddo
 
-!+---+-----------------------------------------------------------------+
+!=================================================================================================================
 !.. If still subsaturated, allow rain to evaporate, following
 !.. Srivastava & Coen (1992).
 !+---+-----------------------------------------------------------------+
@@ -2098,7 +2084,7 @@ contains
         enddo
 #endif
 
-!+---+-----------------------------------------------------------------+
+!=================================================================================================================
 !..Find max terminal fallspeed (distribution mass-weighted mean
 !.. velocity) and use it to determine if we need to split the timestep
 !.. (var nstep>1).  Either way, only bother to do sedimentation below
@@ -2259,7 +2245,7 @@ contains
                     vtg = 0.
 
                     if (rg(k).gt. R1) then
-                        if (is_hail_aware) then
+                        if (configs%hail_aware) then
                             xrho_g = MAX(rho_g(1),MIN(rg(k)/rho(k)/rb(k),rho_g(NRHG)))
                             afall = a_coeff*((4.0*xrho_g*9.8)/(3.0*rho(k)))**b_coeff
                             afall = afall * visco(k)**(1.0-2.0*b_coeff)
@@ -2293,7 +2279,7 @@ contains
             endif
         endif
 
-!+---+-----------------------------------------------------------------+
+!=================================================================================================================
 !..Sedimentation of mixing ratio is the integral of v(D)*m(D)*N(D)*dD,
 !.. whereas neglect m(D) term for number concentration.  Therefore,
 !.. cloud ice has proper differential sedimentation.
@@ -2508,7 +2494,7 @@ contains
             enddo
         endif
 
-!+---+-----------------------------------------------------------------+
+!=================================================================================================================
 !.. All tendencies computed, apply and pass back final values to parent.
 !+---+-----------------------------------------------------------------+
         do k = kts, kte
@@ -2580,7 +2566,7 @@ contains
                 qb1d(k) = max(qg1d(k)/rho_g(nrhg), qb1d(k) + qbten(k)*dt)
                 qb1d(k) = min(qg1d(k)/rho_g(1), qb1d(k))
                 idx_bg(k) = max(1,min(nint(qg1d(k)/qb1d(k) *0.01)+1,nrhg))
-                if (.not. is_hail_aware) idx_bg(k) = idx_bg1
+!!                if (.not. is_hail_aware) idx_bg(k) = idx_bg1
                 lamg = (am_g(idx_bg(k))*cgg(3,1)*ogg2*ng1d(k)/qg1d(k))**obmg
                 mvd_g(k) = (3.0 + mu_g + 0.672) / lamg
                 if (mvd_g(k) .gt. 25.4E-3) then
@@ -2679,11 +2665,10 @@ contains
         endif calculate_extended_diagnostics
 #endif
 
-    end subroutine mp_thompson
-!+---+-----------------------------------------------------------------+
+    end subroutine mp_thompson_main
+!=================================================================================================================
 
-!ctrlL
-!+---+-----------------------------------------------------------------+
+!=================================================================================================================
 !..Function to compute collision efficiency of collector species (rain,
 !.. snow, graupel) of aerosols.  Follows Wang et al, 2010, ACP, which
 !.. follows Slinn (1983).
@@ -2727,8 +2712,7 @@ contains
 
     end function Eff_aero
 
-!^L
-!+---+-----------------------------------------------------------------+
+!=================================================================================================================
 !..Retrieve fraction of CCN that gets activated given the model temp,
 !.. vertical velocity, and available CCN concentration.  The lookup
 !.. table (read from external file) has CCN concentration varying the
@@ -2816,7 +2800,7 @@ contains
     end function activ_ncloud
 
 #if !defined(mpas)
-!+---+-----------------------------------------------------------------+
+!=================================================================================================================
 !+---+-----------------------------------------------------------------+
     SUBROUTINE GCF(GAMMCF,A,X,GLN)
 !     --- RETURNS THE INCOMPLETE GAMMA FUNCTION Q(A,X) EVALUATED BY ITS

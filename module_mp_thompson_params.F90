@@ -1,3 +1,6 @@
+! Parameters file for Thompson-Eidhammer Microphysics
+!=================================================================================================================
+
 module module_mp_thompson_params
 
 #if defined(CCPP)
@@ -8,14 +11,19 @@ module module_mp_thompson_params
 
     implicit none
 
+    type config_flags
+        logical :: aerosol_aware
+        logical :: hail_aware
+    end type config_flags
+
+    logical :: build_table_hail_aware = .true.
     logical, parameter :: iiwarm = .false.
-    logical, public :: is_aerosol_aware = .false.
+!    logical :: is_aerosol_aware = .true.
 #if defined(CCPP)
     logical :: merra2_aerosol_aware = .false.
 #endif
     logical, parameter :: dustyIce = .true.
     logical, parameter :: homogIce = .true.
-    logical, parameter :: is_hail_aware = .false.
 
     integer, parameter :: IFDRY = 0
     real(wp), parameter :: T_0 = 273.15
@@ -34,18 +42,18 @@ module module_mp_thompson_params
     integer, parameter :: idx_bg1 = 6 ! index for rhog when mp=8 or 28
 
 ! Prescribed number of cloud droplets.  Set according to known data or
-! roughly 100 per cc (100.E6 m^-3) for Maritime cases and
-! 300 per cc (300.E6 m^-3) for Continental.  Gamma shape parameter,
+! roughly 100 per cc (100.e6 m^-3) for Maritime cases and
+! 300 per cc (300.e6 m^-3) for Continental.  Gamma shape parameter,
 ! mu_c, calculated based on Nt_c is important in autoconversion
 ! scheme.  In 2-moment cloud water, Nt_c represents a maximum of
 ! droplet concentration and nu_c is also variable depending on local
 ! droplet number concentration.
 #if defined(CCPP)
-    real(wp), parameter :: Nt_c = 100.E6
+    real(wp), parameter :: Nt_c = 100.e6
 #elif defined(mpas)
     real(wp) :: Nt_c
 #endif
-    real(wp), parameter :: Nt_c_max = 1999.E6
+    real(wp), parameter :: Nt_c_max = 1999.e6
     real(wp), parameter :: Nt_c_o = 50.e6
     real(wp), parameter :: Nt_c_l = 100.e6
     ! real(wp) :: Nt_c
@@ -81,22 +89,27 @@ module module_mp_thompson_params
 ! mixing ratio.  Also, when mu_g is non-zero, these become equiv
 ! y-intercept for an exponential distrib and proper values are
 ! computed based on same mixing ratio and total number concentration.
-    real(wp), parameter :: gonv_min = 1.E2
-    real(wp), parameter :: gonv_max = 1.E6
+    real(wp), parameter :: gonv_min = 1.e2
+    real(wp), parameter :: gonv_max = 1.e6
 
 ! Mass power law relations:  mass = am*D**bm
 ! Snow from Field et al. (2005), others assume spherical form.
-    real(wp), parameter :: am_r = PI*rho_w2/6.0
+    real(wp), parameter :: am_r = PI * rho_w2 / 6.0
     real(wp), parameter :: bm_r = 3.0
     real(wp), parameter :: am_s = 0.069
     real(wp), parameter :: bm_s = 2.0
     ! real(wp), parameter :: am_g = PI*rho_g/6.0
-    real(wp), dimension (NRHG), parameter :: am_g = (/ &
-        PI*rho_g(1)/6.0, PI*rho_g(2)/6.0, PI*rho_g(3)/6.0, &
-        PI*rho_g(4)/6.0, PI*rho_g(5)/6.0, PI*rho_g(6)/6.0, &
-        PI*rho_g(7)/6.0, PI*rho_g(8)/6.0, PI*rho_g(9)/6.0 /)
+    real(wp), dimension (NRHG), parameter :: am_g = (/PI*rho_g(1)/6.0, &
+                                                      PI*rho_g(2)/6.0, &
+                                                      PI*rho_g(3)/6.0, &
+                                                      PI*rho_g(4)/6.0, &
+                                                      PI*rho_g(5)/6.0, &
+                                                      PI*rho_g(6)/6.0, &
+                                                      PI*rho_g(7)/6.0, &
+                                                      PI*rho_g(8)/6.0, &
+                                                      PI*rho_g(9)/6.0/)
     real(wp), parameter :: bm_g = 3.0
-    real(wp), parameter :: am_i = PI*rho_i/6.0
+    real(wp), parameter :: am_i = PI * rho_i / 6.0
     real(wp), parameter :: bm_i = 3.0
 
 ! Fallspeed power laws relations:  v = (av*D**bv)*exp(-fv*D)
@@ -112,14 +125,13 @@ module module_mp_thompson_params
     ! real(wp), parameter :: bv_g = 0.89
     real(wp), parameter :: av_g_old = 442.0
     real(wp), parameter :: bv_g_old = 0.89
-    real(wp), dimension(NRHG) :: & ! Computed from A. Heymsfield: Best - Reynolds relation
-        av_g = (/ 45.9173813, 67.0867386, 98.0158463, 122.353378, &
-                  143.204224, 161.794724, 178.762115, 194.488785, &
-                  209.225876/)
-    real(wp), dimension(NRHG) :: & ! Computed from A. Heymsfield: Best - Reynolds relation
-        bv_g = (/0.640961647, 0.640961647, 0.640961647, 0.640961647, &
-                 0.640961647, 0.640961647, 0.640961647, 0.640961647, &
-                 0.640961647/)
+
+! Computed from A. Heymsfield: Best - Reynolds relation
+    real(wp), dimension(NRHG) :: av_g = (/45.9173813, 67.0867386, 98.0158463, 122.353378, &
+        143.204224, 161.794724, 178.762115, 194.488785, 209.225876/)
+    real(wp), dimension(NRHG) :: bv_g = (/0.640961647, 0.640961647, 0.640961647, 0.640961647, &
+                 0.640961647, 0.640961647, 0.640961647, 0.640961647, 0.640961647/)
+
     real(wp), parameter :: a_coeff = 0.47244157
     real(wp), parameter :: b_coeff = 0.54698726
     real(wp), parameter :: av_i = 1493.9
@@ -141,19 +153,19 @@ module module_mp_thompson_params
     real(wp), parameter :: Ef_ri = 0.95
 
 ! Minimum microphys values
-! R1 value, 1.E-12, cannot be set lower because of numerical
+! R1 value, 1.e-12, cannot be set lower because of numerical
 ! problems with Paul Field's moments and should not be set larger
 ! because of truncation problems in snow/ice growth.
-    real(wp), parameter :: R1 = 1.E-12
-    real(wp), parameter :: R2 = 1.E-6
-    real(wp), parameter :: eps = 1.E-15
+    real(wp), parameter :: R1 = 1.e-12
+    real(wp), parameter :: R2 = 1.e-6
+    real(wp), parameter :: eps = 1.e-15
 
 ! Constants in Cooper curve relation for cloud ice number.
     real(wp), parameter :: TNO = 5.0
     real(wp), parameter :: ATO = 0.304
 
 ! Rho_not used in fallspeed relations (rho_not/rho)**.5 adjustment.
-    real(wp), parameter :: rho_not = 101325.0/(287.05*298.0)
+    real(wp), parameter :: rho_not = 101325.0 / (287.05*298.0)
 
 ! Schmidt number
     real(wp), parameter :: Sc = 0.632
@@ -175,7 +187,7 @@ module module_mp_thompson_params
     real(dp), parameter :: M_a = 28.96E-3                   ! molecular mass of air [kg/mol]
     real(dp), parameter :: N_avo = 6.022E23                 ! Avogadro number [1/mol]
     real(dp), parameter :: ma_w = M_w / N_avo               ! mass of water molecule [kg]
-    real(wp), parameter :: ar_volume = 4./3.*PI*(2.5e-6)**3 ! assume radius of 0.025 micrometer, 2.5e-6 cm
+    real(wp), parameter :: ar_volume = 4.0 / 3.0 * PI * (2.5e-6)**3 ! assume radius of 0.025 micrometer, 2.5e-6 cm
 
 ! Enthalpy of sublimation, vaporization, and fusion at 0C.
     real(wp), parameter :: lsub = 2.834E6
@@ -185,11 +197,11 @@ module module_mp_thompson_params
 
 ! Ice initiates with this mass (kg), corresponding diameter calc.
 ! Min diameters and mass of cloud, rain, snow, and graupel (m, kg).
-    real(wp), parameter :: xm0i = 1.E-12
-    real(wp), parameter :: D0c = 1.E-6
-    real(wp), parameter :: D0r = 50.E-6
-    real(wp), parameter :: D0s = 300.E-6
-    real(wp), parameter :: D0g = 350.E-6
+    real(wp), parameter :: xm0i = 1.e-12
+    real(wp), parameter :: D0c = 1.e-6
+    real(wp), parameter :: D0r = 50.e-6
+    real(wp), parameter :: D0s = 300.e-6
+    real(wp), parameter :: D0g = 350.e-6
     real(wp) :: D0i, xm0s, xm0g
 
 ! Lookup table dimensions
