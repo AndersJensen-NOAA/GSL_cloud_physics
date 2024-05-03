@@ -1,5 +1,6 @@
 ! Utilities for Thompson-Eidhammer Microphysics
 !=================================================================================================================
+
 module module_mp_thompson_utils
 
 #if defined(CCPP)
@@ -848,6 +849,7 @@ end subroutine table_ccnAct
         REAL, DIMENSION(kts:kte), INTENT(INOUT):: dBZ
         REAL, DIMENSION(kts:kte), OPTIONAL, INTENT(INOUT):: vt_dBZ
         LOGICAL, OPTIONAL, INTENT(IN) :: first_time_step
+
         type(config_flags), intent(in) :: configs
         
 !..Local variables
@@ -1171,7 +1173,6 @@ end subroutine table_ccnAct
         endif
 
     end subroutine calc_refl10cm
-!
 
     elemental subroutine make_hydrometeor_number_concentrations(qc, qr, qi, nwfa, temp, rhoa, nc, nr, ni)
       implicit none
