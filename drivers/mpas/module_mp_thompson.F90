@@ -504,8 +504,7 @@ contains
 !.. data were created from a parcel model by Feingold & Heymsfield with
 !.. further changes by Eidhammer and Kriedenweis.
             
-! AAJ aerosol aware is off. Add this to the build table functionality
-! for MPAS
+! Add this to the build table functionality for MPAS
             ! if (is_aerosol_aware) then
             !     call table_ccnAct
             !  endif
@@ -816,16 +815,11 @@ contains
 
                     if (present(nc)) then
                        nc1d(k) = nc(i,k,j)
-                       if ((qc1d(k) > R1) .and. (nc1d(k) < 0.01e6)) then
-                          nc1d(k) = nt_c / rho(k)
-                       endif
                     else
                        nc1d(k) = nt_c / rho(k)
                        configs%aerosol_aware = .false.
                     endif
                  enddo
-
-                
 
 ! ng and qb are optional hail-aware variables
                 if ((present(ng)) .and. (present(qb))) then
