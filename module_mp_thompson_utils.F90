@@ -303,7 +303,6 @@ subroutine freezeH2O
 
     !..Local variables
     INTEGER:: i, j, k, m, n, n2
-    INTEGER:: km, km_s, km_e
     DOUBLE PRECISION :: N_r, N_c
     DOUBLE PRECISION, DIMENSION(nbr):: massr
     DOUBLE PRECISION, DIMENSION(nbc):: massc
@@ -325,10 +324,9 @@ subroutine freezeH2O
     enddo
 
     !..Freeze water (smallest drops become cloud ice, otherwise graupel).
-    do km = km_s, km_e
-        m = km / 45 + 1
-        k = mod( km , 45 ) + 1
-        T_adjust = MAX(-3.0, MIN(3.0 - ALOG10(Nt_IN(m)), 3.0))
+    do m = 1, ntb_IN
+       T_adjust = MAX(-3.0, MIN(3.0 - ALOG10(Nt_IN(m)), 3.0))
+       do k = 1, 45
         !         print*, ' Freezing water for temp = ', -k
         Texp = DEXP( REAL(k,KIND=dp) - T_adjust*1.0D0 ) - 1.0D0
         do j = 1, ntb_r1
@@ -380,7 +378,8 @@ subroutine freezeH2O
             enddo
         enddo
     enddo
-
+ enddo
+ 
 end subroutine freezeH2O
 !+---+-----------------------------------------------------------------+
 !ctrlL
