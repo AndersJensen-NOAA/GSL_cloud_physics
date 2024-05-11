@@ -85,6 +85,7 @@ contains
                  using_hail_aware_table = .false.
                  call physics_message('--- thompson_init() ' // &
                       'Lookup table for qr_acr_qg is not hail aware.')
+                 dimNRHG = NRHG1
                  if (hail_aware_flag) then
                     call physics_error_fatal('--- thompson_init() Cannot use hail-aware microphysics ' // &
                          'with non hail-aware qr_acr_qg lookup table. ' // &
@@ -94,6 +95,7 @@ contains
                  using_hail_aware_table = .true.
                  call physics_message('--- thompson_init() ' // &
                       'Lookup table for qr_acr_qg is hail aware.')
+                 dimNRHG = NRHG
               else
                  using_hail_aware_table = .false.
                  if (hail_aware_flag) using_hail_aware_table = .true.
